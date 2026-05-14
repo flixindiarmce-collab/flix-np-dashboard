@@ -25,7 +25,7 @@ INSERT INTO dashboard_users (user_id, name, password_hash, role)
 VALUES (
   'admin',
   'NP Master Admin',
-  crypt('CHANGE_ME_BEFORE_RUNNING', gen_salt('bf', 12)),
+  crypt('Flixnp@123', gen_salt('bf', 12)),
   'admin'
 );
 
