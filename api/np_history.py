@@ -48,7 +48,14 @@ OPERATOR_PATTERNS = {
     "laxmi":    "(LOWER(travels_name) LIKE '%laxmi holidays%' AND LOWER(travels_name) NOT LIKE '%pvt%')",
 }
 
-PRODUCT_TYPES_DEFAULT = ["Seater", "Sleeper", "Hybrid", "Volvo"]
+PRODUCT_TYPES_ALL = {"Seater", "Sleeper", "Hybrid", "Volvo"}
+
+PRODUCT_TYPE_CLAUSES = {
+    "Seater":  "(is_seater = TRUE  AND is_sleeper = FALSE)",
+    "Sleeper": "(is_sleeper = TRUE AND is_seater = FALSE)",
+    "Hybrid":  "(is_seater = TRUE  AND is_sleeper = TRUE)",
+    "Volvo":   "LOWER(bus_type) LIKE '%volvo%'",
+}
 
 MIN_ROWS_PER_DAY = 150_000
 MIN_FORWARD_DAYS = 29
@@ -72,12 +79,12 @@ def _build_filter_clauses(params: dict) -> tuple[str, dict]:
         op_keys = list(OPERATOR_PATTERNS.keys())
     operator_filter = " OR ".join(OPERATOR_PATTERNS[k] for k in op_keys)
 
-    products = params.get("product_type", "").split(",") if params.get("product_type") else PRODUCT_TYPES_DEFAULT
-    products = [_sql_string_escape(p.strip()) for p in products if p.strip()]
-    product_filter = ""
-    if products:
-        product_list = ",".join(f"'{p}'" for p in products)
-        product_filter = f"AND bus_product_type IN ({product_list})"
+    products_raw = params.get("product_type", "").split(",") if params.get("product_type") else list(PRODUCT_TYPES_ALL)
+    products = [p.strip() for p in products_raw if p.strip() in PRODUCT_TYPES_ALL]
+    if not products or set(products) == PRODUCT_TYPES_ALL:
+        product_filter = ""
+    else:
+        product_filter = "AND (" + " OR ".join(PRODUCT_TYPE_CLAUSES[p] for p in products) + ")"
 
     extra_filters = []
     if params.get("corridor"):
@@ -85,7 +92,7 @@ def _build_filter_clauses(params: dict) -> tuple[str, dict]:
     elif params.get("origin_hub"):
         extra_filters.append(f"AND STARTS_WITH(LOWER(relation_name), LOWER('{_sql_string_escape(params['origin_hub'])}'))")
     if params.get("line_code"):
-        extra_filters.append(f"AND line_number = '{_sql_string_escape(params['line_code'])}'")
+        extra_filters.append(f"AND service_id = '{_sql_string_escape(params['line_code'])}'")
 
     applied = {
         "operators":    op_keys,
@@ -124,9 +131,10 @@ def _build_trend_sql(history_days: int, op_filter: str, prod_filter: str, extra_
             PARSE_DATE('%d-%b-%Y', departure_date)  AS departure_date,
             departure_time,
             service_id,
-            line_number,
             travels_name,
-            bus_product_type
+            bus_type,
+            is_seater,
+            is_sleeper
           FROM `redbus-agent-490708.redbus.bus_inventory`
           WHERE DATE(scrape_timestamp, 'Asia/Kolkata') IN (SELECT scrape_date FROM clean_days)
             AND ({op_filter})

@@ -51,7 +51,14 @@ OPERATOR_PATTERNS = {
     "laxmi":    "(LOWER(travels_name) LIKE '%laxmi holidays%' AND LOWER(travels_name) NOT LIKE '%pvt%')",
 }
 
-PRODUCT_TYPES_DEFAULT = ["Seater", "Sleeper", "Hybrid", "Volvo"]
+PRODUCT_TYPES_ALL = {"Seater", "Sleeper", "Hybrid", "Volvo"}
+
+PRODUCT_TYPE_CLAUSES = {
+    "Seater":  "(is_seater = TRUE  AND is_sleeper = FALSE)",
+    "Sleeper": "(is_sleeper = TRUE AND is_seater = FALSE)",
+    "Hybrid":  "(is_seater = TRUE  AND is_sleeper = TRUE)",
+    "Volvo":   "LOWER(bus_type) LIKE '%volvo%'",
+}
 
 
 def _bq_client():
@@ -77,13 +84,13 @@ def _build_query(params: dict) -> tuple[str, dict]:
         op_keys = list(OPERATOR_PATTERNS.keys())
     operator_filter = " OR ".join(OPERATOR_PATTERNS[k] for k in op_keys)
 
-    # Product type filter
-    products = params.get("product_type", "").split(",") if params.get("product_type") else PRODUCT_TYPES_DEFAULT
-    products = [_sql_string_escape(p.strip()) for p in products if p.strip()]
-    product_filter = ""
-    if products:
-        product_list = ",".join(f"'{p}'" for p in products)
-        product_filter = f"AND bus_product_type IN ({product_list})"
+    # Product type filter — derived from is_seater/is_sleeper/bus_type
+    products_raw = params.get("product_type", "").split(",") if params.get("product_type") else list(PRODUCT_TYPES_ALL)
+    products = [p.strip() for p in products_raw if p.strip() in PRODUCT_TYPES_ALL]
+    if not products or set(products) == PRODUCT_TYPES_ALL:
+        product_filter = ""
+    else:
+        product_filter = "AND (" + " OR ".join(PRODUCT_TYPE_CLAUSES[p] for p in products) + ")"
 
     # Optional dimensional filters
     extra_filters = []
@@ -93,7 +100,7 @@ def _build_query(params: dict) -> tuple[str, dict]:
         hub = _sql_string_escape(params["origin_hub"])
         extra_filters.append(f"AND STARTS_WITH(LOWER(relation_name), LOWER('{hub}'))")
     if params.get("line_code"):
-        extra_filters.append(f"AND line_number = '{_sql_string_escape(params['line_code'])}'")
+        extra_filters.append(f"AND service_id = '{_sql_string_escape(params['line_code'])}'")
     extra_filter = " ".join(extra_filters)
 
     sql = f"""
@@ -104,9 +111,11 @@ def _build_query(params: dict) -> tuple[str, dict]:
             PARSE_DATE('%d-%b-%Y', departure_date)                                AS departure_date,
             departure_time,
             service_id,
-            line_number,
             travels_name,
-            bus_product_type,
+            bus_type,
+            is_seater,
+            is_sleeper,
+            is_ac,
             SAFE_CAST(available_seats AS INT64)                                   AS available_seats,
             SAFE_CAST(total_seats AS INT64)                                       AS total_seats,
             ROW_NUMBER() OVER (
@@ -125,9 +134,12 @@ def _build_query(params: dict) -> tuple[str, dict]:
           relation_name,
           departure_date,
           departure_time,
-          line_number,
+          service_id,
           travels_name,
-          bus_product_type,
+          bus_type,
+          is_seater,
+          is_sleeper,
+          is_ac,
           available_seats,
           total_seats,
           CASE WHEN LOWER(travels_name) LIKE '%flix%'                                            THEN 'flix'
@@ -182,9 +194,9 @@ def _aggregate(rows):
         # by_day
         by_day[(r["departure_date"].isoformat(), op)] += 1
 
-        # by_line
-        line  = r["line_number"] or "(no-line)"
-        k3    = (line, r["relation_name"], op)
+        # by_service (uses service_id as the stable "line" identifier)
+        svc   = r["service_id"] or "(no-service)"
+        k3    = (svc, r["relation_name"], op)
         by_line[k3]["count"] += 1
         if r["departure_time"]:
             by_line[k3]["times"].append(r["departure_time"])
@@ -207,13 +219,13 @@ def _aggregate(rows):
 
     by_line_out = [
         {
-            "line_code":        line,
+            "service_id":       svc,
             "corridor":         corridor,
             "operator":         op,
             "departure_count":  v["count"],
             "departure_times":  sorted(set(v["times"])),
         }
-        for (line, corridor, op), v in sorted(by_line.items())
+        for (svc, corridor, op), v in sorted(by_line.items())
     ]
 
     return by_operator_hourband, by_day_out, by_line_out

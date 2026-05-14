@@ -32,9 +32,11 @@ base AS (
     PARSE_DATE('%d-%b-%Y', departure_date) AS departure_date,
     departure_time,
     service_id,
-    line_number,
     travels_name,
-    bus_product_type,
+    bus_type,
+    is_seater,
+    is_sleeper,
+    is_ac,
     SAFE_CAST(available_seats AS INT64) AS available_seats,
     total_seats
   FROM `redbus-agent-490708.redbus.bus_inventory`
