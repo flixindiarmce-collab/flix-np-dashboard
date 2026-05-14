@@ -301,10 +301,47 @@ class handler(BaseHTTPRequestHandler):
 
             by_oh, by_day, by_line = _aggregate(rows)
 
+            # Per-bus rows for the schedule table view (the NP-team primary view).
+            # Cap at 5000 to keep payload bounded; if user hits cap, they should filter further.
+            ROW_CAP = 5000
+            per_bus = []
+            for r in rows[:ROW_CAP]:
+                if r["operator"] == "other":
+                    continue
+                seats_total = int(r["total_seats"]) if r["total_seats"] else None
+                seats_avail = int(r["available_seats"]) if r["available_seats"] is not None else None
+                load_pct = None
+                if seats_total and seats_avail is not None:
+                    load_pct = round((1 - seats_avail / seats_total) * 100, 1)
+                if r["is_seater"] and r["is_sleeper"]:
+                    product = "Hybrid"
+                elif r["is_sleeper"]:
+                    product = "Sleeper"
+                elif r["is_seater"]:
+                    product = "Seater"
+                else:
+                    product = "Unknown"
+                per_bus.append({
+                    "departure_date": r["departure_date"].isoformat(),
+                    "departure_time": r["departure_time"],
+                    "operator":       r["operator"],
+                    "relation_name":  r["relation_name"],
+                    "service_id":     r["service_id"],
+                    "bus_type":       r["bus_type"],
+                    "product":        product,
+                    "is_ac":          bool(r["is_ac"]) if r["is_ac"] is not None else None,
+                    "is_volvo":       bool(r["bus_type"] and "volvo" in r["bus_type"].lower()),
+                    "total_seats":    seats_total,
+                    "avail_seats":    seats_avail,
+                    "load_pct":       load_pct,
+                })
+
             self.wfile.write(json.dumps({
                 "ok":                    True,
                 "filters_applied":       applied,
                 "row_count_raw":         len(rows),
+                "row_cap":               ROW_CAP,
+                "rows":                  per_bus,
                 "by_operator_hourband":  by_oh,
                 "by_day":                by_day,
                 "by_line":               by_line,

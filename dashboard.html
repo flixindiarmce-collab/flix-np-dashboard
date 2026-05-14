@@ -89,11 +89,27 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 .placeholder,.state-msg{padding:40px;text-align:center;color:var(--text3);font-size:13px}
 
 .tbl{width:100%;border-collapse:collapse;font-size:12px}
-.tbl th{padding:9px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap;font-family:var(--mono)}
-.tbl td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text2);font-family:var(--mono);font-size:11px}
+.tbl th{padding:9px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap;font-family:var(--mono);position:sticky;top:0;z-index:1}
+.tbl th[data-sort]{cursor:pointer;user-select:none}
+.tbl th[data-sort]:hover{color:var(--text2)}
+.tbl th.sort-asc::after{content:' ↑';color:var(--flix)}
+.tbl th.sort-desc::after{content:' ↓';color:var(--flix)}
+.tbl td{padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text2);font-family:var(--mono);font-size:11px;white-space:nowrap}
 .tbl tr:last-child td{border-bottom:none}
 .tbl tr:hover td{background:var(--surface2)}
 .tbl td.route{font-family:var(--font);font-weight:600;color:var(--text)}
+.tbl tr.op-flix     td:first-child{box-shadow:inset 3px 0 0 #5bbf00}
+.tbl tr.op-intrcity td:first-child{box-shadow:inset 3px 0 0 #3b82f6}
+.tbl tr.op-zingbus  td:first-child{box-shadow:inset 3px 0 0 #f59e0b}
+.tbl tr.op-nuego    td:first-child{box-shadow:inset 3px 0 0 #8b5cf6}
+.tbl tr.op-freshbus td:first-child{box-shadow:inset 3px 0 0 #ef4444}
+.tbl tr.op-laxmi    td:first-child{box-shadow:inset 3px 0 0 #6b7280}
+.op-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;color:#fff}
+.load-bar{display:inline-block;width:46px;height:6px;background:var(--border);border-radius:3px;vertical-align:middle;margin-right:6px;position:relative;overflow:hidden}
+.load-bar i{position:absolute;left:0;top:0;bottom:0;background:var(--flix);border-radius:3px}
+.load-bar i.hot{background:var(--red)}
+.load-bar i.warm{background:var(--amber)}
+.pchip-small{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
 
 /* Admin */
 .admin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
@@ -195,49 +211,101 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 
     <!-- ── TAB: SHORT TERM ──────────────────────────────────────────────── -->
     <div class="tab-panel active" data-panel="short">
-      <div class="kpi-row">
-        <div class="kpi"><div class="kpi-label">Flix departures</div>     <div class="kpi-value" id="kpi-flix-short">—</div></div>
-        <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Competitor departures</div><div class="kpi-value" id="kpi-comp-short">—</div></div>
-        <div class="kpi"><div class="kpi-label">Flix seats offered</div>   <div class="kpi-value" id="kpi-seats-short">—</div></div>
-        <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Avg load %</div><div class="kpi-value" id="kpi-load-short">—</div></div>
+      <div class="kpi-row" id="kpi-row-short">
+        <div class="kpi"><div class="kpi-label">Total departures</div><div class="kpi-value" id="kpi-total-short">—</div></div>
+        <div class="kpi"><div class="kpi-label">Flix</div><div class="kpi-value" id="kpi-flix-short">—</div></div>
+        <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Competitors (combined)</div><div class="kpi-value" id="kpi-comp-short">—</div></div>
+        <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Flix share</div><div class="kpi-value" id="kpi-share-short">—</div></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Schedule — every bus, sorted by departure time</div>
+            <div class="card-sub" id="short-table-sub">D0–D4 · filter above to scope</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:11px;color:var(--text3);font-family:var(--mono)" id="short-row-count"></span>
+            <button class="btn" id="short-csv">Export CSV</button>
+          </div>
+        </div>
+        <div class="card-body nopad">
+          <div style="max-height:640px;overflow:auto">
+            <table class="tbl tbl-schedule" id="tbl-short">
+              <thead><tr>
+                <th data-sort="departure_date">Date</th>
+                <th data-sort="departure_time">Time</th>
+                <th data-sort="operator">Operator</th>
+                <th data-sort="relation_name">Corridor</th>
+                <th data-sort="product">Type</th>
+                <th>Bus type</th>
+                <th data-sort="total_seats">Seats</th>
+                <th data-sort="load_pct">Load %</th>
+                <th data-sort="service_id">Service ID</th>
+              </tr></thead>
+              <tbody><tr><td colspan="9" class="state-msg">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
       </div>
       <div class="g2">
         <div class="card">
-          <div class="card-head"><div><div class="card-title">Departures by hour band</div><div class="card-sub">D0-D4 · by operator</div></div></div>
+          <div class="card-head"><div><div class="card-title">By hour band</div><div class="card-sub">Bus count per operator × time-of-day</div></div></div>
           <div class="card-body"><div class="chart-wrap"><canvas id="chart-hourband-short"></canvas></div></div>
         </div>
         <div class="card">
-          <div class="card-head"><div><div class="card-title">Departures by day</div><div class="card-sub">Next 4 days, by operator</div></div></div>
+          <div class="card-head"><div><div class="card-title">By day</div><div class="card-sub">Bus count per operator across the 4 days</div></div></div>
           <div class="card-body"><div class="chart-wrap"><canvas id="chart-byday-short"></canvas></div></div>
         </div>
-      </div>
-      <div class="card">
-        <div class="card-head"><div><div class="card-title">Per-service departures</div><div class="card-sub">Flix + competitors, with departure times</div></div></div>
-        <div class="card-body nopad"><div style="max-height:400px;overflow-y:auto"><table class="tbl" id="tbl-byline-short"><thead><tr><th>Service</th><th>Corridor</th><th>Operator</th><th>Dep count</th><th>Departure times</th></tr></thead><tbody><tr><td colspan="5" class="state-msg">Loading…</td></tr></tbody></table></div></div>
       </div>
     </div>
 
     <!-- ── TAB: LONG TERM ───────────────────────────────────────────────── -->
     <div class="tab-panel" data-panel="long">
-      <div class="kpi-row">
-        <div class="kpi"><div class="kpi-label">Flix departures (D5-D30)</div><div class="kpi-value" id="kpi-flix-long">—</div></div>
-        <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Comp departures (D5-D30)</div><div class="kpi-value" id="kpi-comp-long">—</div></div>
-        <div class="kpi"><div class="kpi-label">Flix seats offered</div>      <div class="kpi-value" id="kpi-seats-long">—</div></div>
-        <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Avg load %</div><div class="kpi-value" id="kpi-load-long">—</div></div>
+      <div class="kpi-row" id="kpi-row-long">
+        <div class="kpi"><div class="kpi-label">Total departures</div><div class="kpi-value" id="kpi-total-long">—</div></div>
+        <div class="kpi"><div class="kpi-label">Flix</div><div class="kpi-value" id="kpi-flix-long">—</div></div>
+        <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Competitors (combined)</div><div class="kpi-value" id="kpi-comp-long">—</div></div>
+        <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Flix share</div><div class="kpi-value" id="kpi-share-long">—</div></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Schedule — every bus, sorted by departure time</div>
+            <div class="card-sub" id="long-table-sub">D5–D30 · filter above to scope</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:11px;color:var(--text3);font-family:var(--mono)" id="long-row-count"></span>
+            <button class="btn" id="long-csv">Export CSV</button>
+          </div>
+        </div>
+        <div class="card-body nopad">
+          <div style="max-height:640px;overflow:auto">
+            <table class="tbl tbl-schedule" id="tbl-long">
+              <thead><tr>
+                <th data-sort="departure_date">Date</th>
+                <th data-sort="departure_time">Time</th>
+                <th data-sort="operator">Operator</th>
+                <th data-sort="relation_name">Corridor</th>
+                <th data-sort="product">Type</th>
+                <th>Bus type</th>
+                <th data-sort="total_seats">Seats</th>
+                <th data-sort="load_pct">Load %</th>
+                <th data-sort="service_id">Service ID</th>
+              </tr></thead>
+              <tbody><tr><td colspan="9" class="state-msg">Switch to this tab to load</td></tr></tbody>
+            </table>
+          </div>
+        </div>
       </div>
       <div class="g2">
         <div class="card">
-          <div class="card-head"><div><div class="card-title">Departures by hour band</div><div class="card-sub">D5-D30 · by operator</div></div></div>
+          <div class="card-head"><div><div class="card-title">By hour band</div><div class="card-sub">D5-D30 · by operator</div></div></div>
           <div class="card-body"><div class="chart-wrap"><canvas id="chart-hourband-long"></canvas></div></div>
         </div>
         <div class="card">
-          <div class="card-head"><div><div class="card-title">Departures by day</div><div class="card-sub">D5-D30, by operator</div></div></div>
+          <div class="card-head"><div><div class="card-title">By day</div><div class="card-sub">D5-D30 · by operator</div></div></div>
           <div class="card-body"><div class="chart-wrap"><canvas id="chart-byday-long"></canvas></div></div>
         </div>
-      </div>
-      <div class="card">
-        <div class="card-head"><div><div class="card-title">Per-service departures (D5-D30)</div><div class="card-sub">Long-term coverage</div></div></div>
-        <div class="card-body nopad"><div style="max-height:400px;overflow-y:auto"><table class="tbl" id="tbl-byline-long"><thead><tr><th>Service</th><th>Corridor</th><th>Operator</th><th>Dep count</th><th>Departure times</th></tr></thead><tbody><tr><td colspan="5" class="state-msg">Switch to this tab to load</td></tr></tbody></table></div></div>
       </div>
     </div>
 
@@ -665,42 +733,106 @@ function renderByDayChart(canvasId, byDay) {
   });
 }
 
-function renderByLineTable(tbodyId, byLine) {
-  const tbody = document.querySelector(`#${tbodyId} tbody`);
-  if (!byLine.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="state-msg">No departures for the selected filters</td></tr>';
-    return;
-  }
-  tbody.innerHTML = byLine.slice(0, 300).map(r => `
-    <tr>
-      <td class="route">${r.service_id || '—'}</td>
-      <td>${r.corridor || ''}</td>
-      <td><span style="color:${OP_COLORS[r.operator]||'#888'};font-weight:600">${OP_LABELS[r.operator]||r.operator}</span></td>
-      <td>${fmtNumber(r.departure_count)}</td>
-      <td style="color:var(--text3);white-space:normal">${(r.departure_times||[]).slice(0,10).join(', ')}${(r.departure_times||[]).length>10?` … +${r.departure_times.length-10}`:''}</td>
-    </tr>
-  `).join('');
+// ── Per-bus schedule table ─────────────────────────────────────────────
+const _tableState = {}; // {tableId: {rows, sortKey, sortDir}}
+
+function loadBar(pct) {
+  if (pct == null) return '<span style="color:var(--text3)">—</span>';
+  const cls = pct >= 80 ? 'hot' : pct >= 50 ? 'warm' : '';
+  return `<span class="load-bar"><i class="${cls}" style="width:${Math.min(100,pct)}%"></i></span>${pct.toFixed(0)}%`;
 }
 
-function rollupKPIs(byOpHourBand, suffix) {
-  let flixDep = 0, compDep = 0, flixSeats = 0;
-  let loadSum = 0, loadN = 0;
-  byOpHourBand.forEach(r => {
-    if (r.operator === 'flix') {
-      flixDep += r.departure_count;
-      flixSeats += r.seats_offered || 0;
-    } else {
-      compDep += r.departure_count;
-    }
-    if (r.avg_load_pct != null) {
-      loadSum += r.avg_load_pct * r.departure_count;
-      loadN   += r.departure_count;
-    }
+function renderSchedule(tableId, rows) {
+  _tableState[tableId] = _tableState[tableId] || { rows: [], sortKey: 'departure_time', sortDir: 'asc' };
+  _tableState[tableId].rows = rows;
+  drawSchedule(tableId);
+  attachSortHandlers(tableId);
+}
+
+function drawSchedule(tableId) {
+  const st = _tableState[tableId];
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  const sorted = [...st.rows].sort((a, b) => {
+    const A = a[st.sortKey], B = b[st.sortKey];
+    if (A == null && B == null) return 0;
+    if (A == null) return 1;
+    if (B == null) return -1;
+    const cmp = (typeof A === 'number' && typeof B === 'number') ? A - B : String(A).localeCompare(String(B));
+    return st.sortDir === 'asc' ? cmp : -cmp;
   });
-  $(`kpi-flix-${suffix}`).textContent  = fmtNumber(flixDep);
-  $(`kpi-comp-${suffix}`).textContent  = fmtNumber(compDep);
-  $(`kpi-seats-${suffix}`).textContent = fmtNumber(flixSeats);
-  $(`kpi-load-${suffix}`).textContent  = loadN ? (loadSum / loadN).toFixed(1) + '%' : '—';
+  if (!sorted.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="state-msg">No departures match the filter</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sorted.map(r => {
+    const opColor = OP_COLORS[r.operator] || '#888';
+    const opLabel = OP_LABELS[r.operator] || r.operator;
+    const acBadge = r.is_ac === true  ? ' AC' : r.is_ac === false ? ' Non-AC' : '';
+    const volvoBadge = r.is_volvo ? ' <span class="pchip-small" style="color:#5bbf00;border-color:#c5e89a;background:#f2fce8">Volvo</span>' : '';
+    return `<tr class="op-${r.operator}">
+      <td>${r.departure_date}</td>
+      <td><b style="color:var(--text)">${r.departure_time || '—'}</b></td>
+      <td><span class="op-badge" style="background:${opColor}">${opLabel}</span></td>
+      <td class="route">${r.relation_name || ''}</td>
+      <td>${r.product}${volvoBadge}</td>
+      <td style="color:var(--text3);font-size:10px">${(r.bus_type || '').slice(0, 36)}${acBadge}</td>
+      <td>${r.total_seats != null ? r.total_seats : '—'}</td>
+      <td>${loadBar(r.load_pct)}</td>
+      <td style="color:var(--text3);font-size:10px">${r.service_id || ''}</td>
+    </tr>`;
+  }).join('');
+  // sort indicators
+  document.querySelectorAll(`#${tableId} th[data-sort]`).forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (th.dataset.sort === st.sortKey) th.classList.add(st.sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+  });
+}
+
+function attachSortHandlers(tableId) {
+  document.querySelectorAll(`#${tableId} th[data-sort]`).forEach(th => {
+    if (th.dataset._sortBound) return;
+    th.dataset._sortBound = '1';
+    th.addEventListener('click', () => {
+      const st = _tableState[tableId];
+      const key = th.dataset.sort;
+      if (st.sortKey === key) st.sortDir = st.sortDir === 'asc' ? 'desc' : 'asc';
+      else { st.sortKey = key; st.sortDir = 'asc'; }
+      drawSchedule(tableId);
+    });
+  });
+}
+
+function exportCSV(tableId, filename) {
+  const st = _tableState[tableId];
+  if (!st || !st.rows.length) return;
+  const cols = ['departure_date','departure_time','operator','relation_name','product','bus_type','is_ac','is_volvo','total_seats','avail_seats','load_pct','service_id'];
+  const header = cols.join(',');
+  const body = st.rows.map(r => cols.map(c => {
+    const v = r[c];
+    if (v == null) return '';
+    const s = String(v).replace(/"/g, '""');
+    return /[",\n]/.test(s) ? `"${s}"` : s;
+  }).join(',')).join('\n');
+  const blob = new Blob([header + '\n' + body], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+$('short-csv').addEventListener('click', () => exportCSV('tbl-short', 'np-departures-d0-d4.csv'));
+$('long-csv') .addEventListener('click', () => exportCSV('tbl-long',  'np-departures-d5-d30.csv'));
+
+function rollupKPIs(rows, suffix) {
+  let flix = 0, comp = 0;
+  rows.forEach(r => { if (r.operator === 'flix') flix++; else comp++; });
+  const total = flix + comp;
+  const share = total ? ((flix / total) * 100).toFixed(1) + '%' : '—';
+  $(`kpi-total-${suffix}`).textContent = fmtNumber(total);
+  $(`kpi-flix-${suffix}`).textContent  = fmtNumber(flix);
+  $(`kpi-comp-${suffix}`).textContent  = fmtNumber(comp);
+  $(`kpi-share-${suffix}`).textContent = share;
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -708,22 +840,30 @@ function rollupKPIs(byOpHourBand, suffix) {
 // ════════════════════════════════════════════════════════════════════════
 async function loadShortTab() {
   _shortLoaded = true;
+  $('short-row-count').textContent = 'loading…';
   const r = await api('/api/np-departures' + filterQS({pbd_range:'d0-d4'}));
-  if (!r.ok) { console.error('np-departures error', r); return; }
-  rollupKPIs(r.by_operator_hourband || [], 'short');
+  if (!r.ok) { console.error('np-departures error', r); $('short-row-count').textContent = 'error'; return; }
+  const rows = r.rows || [];
+  rollupKPIs(rows, 'short');
+  renderSchedule('tbl-short', rows);
   renderHourBandChart('chart-hourband-short', r.by_operator_hourband || []);
   renderByDayChart('chart-byday-short', r.by_day || []);
-  renderByLineTable('tbl-byline-short', r.by_line || []);
+  const cap = r.row_count_raw >= (r.row_cap || 5000) ? ` · capped at ${r.row_cap}` : '';
+  $('short-row-count').textContent = `${rows.length.toLocaleString('en-IN')} rows${cap}`;
 }
 
 async function loadLongTab() {
   _longLoaded = true;
+  $('long-row-count').textContent = 'loading…';
   const r = await api('/api/np-departures' + filterQS({pbd_range:'d5-d30'}));
-  if (!r.ok) { console.error('np-departures error', r); return; }
-  rollupKPIs(r.by_operator_hourband || [], 'long');
+  if (!r.ok) { console.error('np-departures error', r); $('long-row-count').textContent = 'error'; return; }
+  const rows = r.rows || [];
+  rollupKPIs(rows, 'long');
+  renderSchedule('tbl-long', rows);
   renderHourBandChart('chart-hourband-long', r.by_operator_hourband || []);
   renderByDayChart('chart-byday-long', r.by_day || []);
-  renderByLineTable('tbl-byline-long', r.by_line || []);
+  const cap = r.row_count_raw >= (r.row_cap || 5000) ? ` · capped at ${r.row_cap}` : '';
+  $('long-row-count').textContent = `${rows.length.toLocaleString('en-IN')} rows${cap}`;
 }
 
 async function loadHistoryTab() {
