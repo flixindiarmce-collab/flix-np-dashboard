@@ -3,6 +3,7 @@
   "builds": [
     { "src": "api/np_departures.py", "use": "@vercel/python" },
     { "src": "api/np_history.py",    "use": "@vercel/python" },
+    { "src": "api/np_relations.py",  "use": "@vercel/python" },
     { "src": "api/freshness.py",     "use": "@vercel/python" },
     { "src": "api/auth.py",          "use": "@vercel/python" },
     { "src": "api/admin.py",         "use": "@vercel/python" },
@@ -12,6 +13,7 @@
   "routes": [
     { "src": "/api/np-departures", "dest": "/api/np_departures.py" },
     { "src": "/api/np-history",    "dest": "/api/np_history.py"    },
+    { "src": "/api/np-relations",  "dest": "/api/np_relations.py"  },
     { "src": "/api/freshness",     "dest": "/api/freshness.py"     },
     { "src": "/api/auth",          "dest": "/api/auth.py"          },
     { "src": "/api/admin",         "dest": "/api/admin.py"         },

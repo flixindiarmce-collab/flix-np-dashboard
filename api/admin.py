@@ -136,8 +136,8 @@ class handler(BaseHTTPRequestHandler):
 
             if not uid or not name or not pwd:
                 return self._json({"ok": False, "error": "user_id, name, password required"}, 400)
-            if role not in ("admin", "rm", "user"):
-                return self._json({"ok": False, "error": "role must be admin | rm | user"}, 400)
+            if role not in ("admin", "np", "rm", "user"):
+                return self._json({"ok": False, "error": "role must be admin | np | rm | user"}, 400)
 
             db = _db()
             # pgcrypto bcrypt via crypt() — password never stored in plain text
@@ -170,7 +170,7 @@ class handler(BaseHTTPRequestHandler):
             if "name" in body:
                 sets.append("name = :name"); params["name"] = body["name"]
             if "role" in body:
-                if body["role"] not in ("admin", "rm", "user"):
+                if body["role"] not in ("admin", "np", "rm", "user"):
                     return self._json({"ok": False, "error": "Invalid role"}, 400)
                 sets.append("role = :role"); params["role"] = body["role"]
             if "tabs" in body:

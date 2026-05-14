@@ -51,6 +51,52 @@ OPERATOR_PATTERNS = {
     "laxmi":    "(LOWER(travels_name) LIKE '%laxmi holidays%' AND LOWER(travels_name) NOT LIKE '%pvt%')",
 }
 
+ROUTE_CORRIDOR = {
+    'delhi to chandigarh':'IN01','chandigarh to delhi':'IN01',
+    'delhi to shimla':'IN01','shimla to delhi':'IN01',
+    'delhi to dehradun':'IN01','dehradun to delhi':'IN01',
+    'delhi to manali':'IN01','manali to delhi':'IN01',
+    'delhi to lucknow':'IN02','lucknow to delhi':'IN02',
+    'delhi to indore':'IN03','indore to delhi':'IN03',
+    'delhi to ujjain':'IN03','ujjain to delhi':'IN03',
+    'delhi to jaipur':'IN04','jaipur to delhi':'IN04',
+    'mumbai to ujjain':'IN05','ujjain to mumbai':'IN05',
+    'pune to ujjain':'IN05','ujjain to pune':'IN05',
+    'mumbai to indore':'IN05','indore to mumbai':'IN05',
+    'indore to ujjain':'IN05','ujjain to indore':'IN05',
+    'indore to pune':'IN05','pune to indore':'IN05',
+    'hyderabad to pune':'IN06','pune to hyderabad':'IN06',
+    'pune to goa':'IN07','goa to pune':'IN07',
+    'mumbai to goa':'IN07','goa to mumbai':'IN07',
+    'bangalore to hyderabad':'IN09','hyderabad to bangalore':'IN09',
+    'bangalore to vijayawada':'IN09','vijayawada to bangalore':'IN09',
+    'hyderabad to vijayawada':'IN09','vijayawada to hyderabad':'IN09',
+    'hyderabad to visakhapatnam':'IN09','visakhapatnam to hyderabad':'IN09',
+    'hyderabad to nellore':'IN09','nellore to hyderabad':'IN09',
+    'hyderabad to tirupati':'IN09','tirupati to hyderabad':'IN09',
+    'chennai to hyderabad':'IN10','hyderabad to chennai':'IN10',
+    'chennai to vijayawada':'IN10','vijayawada to chennai':'IN10',
+    'bangalore to chennai':'IN11','chennai to bangalore':'IN11',
+    'bangalore to coimbatore':'IN11','coimbatore to bangalore':'IN11',
+    'bangalore to kochi':'IN11','kochi to bangalore':'IN11',
+    'chennai to coimbatore':'IN11','coimbatore to chennai':'IN11',
+    'chennai to madurai':'IN11','madurai to chennai':'IN11',
+    'chennai to nagercoil':'IN11','nagercoil to chennai':'IN11',
+    'bangalore to belgaum':'IN12','belgaum to bangalore':'IN12',
+    'bangalore to goa':'IN12','goa to bangalore':'IN12',
+    'bangalore to pune':'IN12','pune to bangalore':'IN12',
+    'bangalore to kundapur':'IN12','kundapur to bangalore':'IN12',
+    'bangalore to mangaluru':'IN12','mangaluru to bangalore':'IN12',
+    'bangalore to udupi':'IN12','udupi to bangalore':'IN12',
+}
+
+
+def _region_to_relations(region: str) -> list[str]:
+    """Return list of relation_names belonging to a region code (IN01-IN12)."""
+    region = (region or "").strip().upper()
+    return [k for k, v in ROUTE_CORRIDOR.items() if v == region]
+
+
 PRODUCT_TYPES_ALL = {"Seater", "Sleeper", "Hybrid", "Volvo"}
 
 PRODUCT_TYPE_CLAUSES = {
@@ -93,12 +139,17 @@ def _build_query(params: dict) -> tuple[str, dict]:
         product_filter = "AND (" + " OR ".join(PRODUCT_TYPE_CLAUSES[p] for p in products) + ")"
 
     # Optional dimensional filters
+    # `relation` (specific origin->destination) takes priority over `region` (IN01-IN12)
     extra_filters = []
-    if params.get("corridor"):
+    if params.get("relation"):
+        extra_filters.append(f"AND relation_name = '{_sql_string_escape(params['relation'])}'")
+    elif params.get("corridor"):  # legacy alias
         extra_filters.append(f"AND relation_name = '{_sql_string_escape(params['corridor'])}'")
-    elif params.get("origin_hub"):
-        hub = _sql_string_escape(params["origin_hub"])
-        extra_filters.append(f"AND STARTS_WITH(LOWER(relation_name), LOWER('{hub}'))")
+    elif params.get("region"):
+        relations = _region_to_relations(params["region"])
+        if relations:
+            relation_list = ",".join(f"'{_sql_string_escape(r)}'" for r in relations)
+            extra_filters.append(f"AND LOWER(relation_name) IN ({relation_list.lower()})")
     if params.get("line_code"):
         extra_filters.append(f"AND service_id = '{_sql_string_escape(params['line_code'])}'")
     extra_filter = " ".join(extra_filters)

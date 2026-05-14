@@ -21,7 +21,6 @@
 }
 body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13px;min-height:100vh}
 
-/* login */
 .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
 .login-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:32px 36px;width:360px}
 .login-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px}
@@ -35,7 +34,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 .login-card button:hover{filter:brightness(1.08)}
 .login-err{font-size:12px;color:var(--red);background:var(--red-bg);border:1px solid var(--red-bdr);border-radius:6px;padding:8px 10px;margin-bottom:14px;display:none}
 
-/* topbar */
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0;padding:0 24px;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 1px 0 var(--border),0 2px 8px rgba(0,0,0,.04)}
 .logo-block{display:flex;align-items:center;gap:10px;margin-right:28px}
 .logo-icon{width:32px;height:32px;border-radius:8px;background:var(--flix);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff}
@@ -53,27 +51,24 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 .pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--flix);margin-right:5px;animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* filter bar */
 .filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:9px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.filter-label{font-size:11px;font-family:var(--mono);color:var(--text3)}
-.filter-group{display:flex;align-items:center;gap:6px}
+.filter-label{font-size:10px;font-family:var(--mono);color:var(--text3);font-weight:600;letter-spacing:.06em}
 .filter-input,.filter-select{padding:5px 10px;border-radius:7px;border:1.5px solid var(--border);font-size:12px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none;transition:border-color .15s}
 .filter-input:focus,.filter-select:focus{border-color:var(--flix);box-shadow:0 0 0 3px var(--flix-bg)}
 .product-chips{display:flex;gap:4px}
-.pchip{padding:3px 10px;border-radius:14px;font-size:11px;font-weight:500;border:1.5px solid var(--border);color:var(--text2);cursor:pointer;font-family:var(--mono)}
+.pchip{padding:3px 10px;border-radius:14px;font-size:11px;font-weight:500;border:1.5px solid var(--border);color:var(--text2);cursor:pointer;font-family:var(--mono);user-select:none}
 .pchip.active{border-color:var(--flix);background:var(--flix-bg);color:var(--flix)}
+.filter-reset{margin-left:auto;font-size:11px;padding:4px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:var(--mono)}
+.filter-reset:hover{background:var(--surface2);color:var(--text)}
 
-/* page */
 .page{padding:20px 24px;max-width:1700px;margin:0 auto}
 .tab-panel{display:none}
 .tab-panel.active{display:block}
 
-/* freshness banner */
 .fresh-banner{background:var(--amber-bg);border:1px solid var(--amber-bdr);border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);display:none}
 .fresh-banner.show{display:block}
 .fresh-banner b{color:var(--amber);font-weight:600}
 
-/* kpi */
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
 .kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,var(--flix))}
@@ -83,15 +78,44 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 .kpi-delta.pos{background:var(--flix-bg);color:var(--flix)}
 .kpi-delta.neg{background:var(--red-bg);color:var(--red)}
 
-/* card */
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
-.card-head{padding:12px 16px;border-bottom:1px solid var(--border)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;margin-bottom:14px}
+.card-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .card-title{font-size:13px;font-weight:600}
 .card-sub{font-size:11px;color:var(--text3);margin-top:2px}
 .card-body{padding:14px 16px}
-.placeholder{padding:40px;text-align:center;color:var(--text3);font-size:13px}
-.placeholder code{font-family:var(--mono);background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:12px;color:var(--text2)}
+.card-body.nopad{padding:0}
+.chart-wrap{position:relative;height:280px;padding:10px}
+.placeholder,.state-msg{padding:40px;text-align:center;color:var(--text3);font-size:13px}
+
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{padding:9px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap;font-family:var(--mono)}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text2);font-family:var(--mono);font-size:11px}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:var(--surface2)}
+.tbl td.route{font-family:var(--font);font-weight:600;color:var(--text)}
+
+/* Admin */
+.admin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.add-user-form{display:none;padding:16px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.add-user-form.show{display:block}
+.add-user-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px}
+.add-user-field label{display:block;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.add-user-field input,.add-user-field select{width:100%;padding:7px 10px;border-radius:7px;border:1.5px solid var(--border);font-size:12px;background:var(--surface);outline:none}
+.add-user-field input:focus,.add-user-field select:focus{border-color:var(--flix);box-shadow:0 0 0 3px var(--flix-bg)}
+.tab-picker-wrap{margin-bottom:12px;display:none}
+.tab-picker-wrap.show{display:block}
+.tab-chk-row{display:flex;flex-wrap:wrap;gap:8px}
+.tab-chk-row label{display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer}
+.btn{padding:6px 14px;border-radius:7px;font-size:12px;font-weight:500;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:var(--font);transition:all .15s}
+.btn:hover{background:var(--surface2);color:var(--text)}
+.btn.primary{background:var(--flix);color:#fff;border-color:var(--flix);font-weight:600}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--red);border-color:var(--red-bdr)}
+.btn.danger:hover{background:var(--red-bg)}
+.modal{display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.5);align-items:center;justify-content:center}
+.modal.show{display:flex}
+.modal-card{background:#fff;border-radius:12px;padding:28px;width:480px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 </style>
 </head>
 <body>
@@ -130,6 +154,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
       <div class="nav-tab active" data-tab="short">Short-term (D0-D4)</div>
       <div class="nav-tab"        data-tab="long">Long-term (D5-D30)</div>
       <div class="nav-tab"        data-tab="history">History (45d / WoW)</div>
+      <div class="nav-tab" id="nav-admin" data-tab="admin" style="display:none">⚙ Admin</div>
     </div>
     <div class="last-run"><span class="pulse"></span><span id="freshness-text">loading…</span></div>
     <div class="user-block">
@@ -138,13 +163,21 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
     </div>
   </div>
 
-  <div class="filter-bar">
-    <span class="filter-label">CORRIDOR</span>
-    <input class="filter-input" id="f-corridor" placeholder="e.g. Delhi → Lucknow" style="width:200px">
-    <span class="filter-label">HUB</span>
-    <input class="filter-input" id="f-hub" placeholder="e.g. Delhi" style="width:120px">
+  <div class="filter-bar" id="filter-bar">
+    <span class="filter-label">REGION</span>
+    <select class="filter-select" id="f-region" style="width:170px;font-family:var(--mono);font-size:11px">
+      <option value="">All India</option>
+    </select>
+    <span class="filter-label">FROM</span>
+    <select class="filter-select" id="f-from" style="width:140px;font-family:var(--mono);font-size:11px">
+      <option value="">All Cities</option>
+    </select>
+    <span class="filter-label">TO</span>
+    <select class="filter-select" id="f-to" style="width:140px;font-family:var(--mono);font-size:11px">
+      <option value="">All Destinations</option>
+    </select>
     <span class="filter-label">LINE</span>
-    <input class="filter-input" id="f-line" placeholder="line code" style="width:100px">
+    <input class="filter-input" id="f-line" placeholder="service id" style="width:110px;font-family:var(--mono);font-size:11px">
     <span class="filter-label">PRODUCT</span>
     <div class="product-chips" id="f-products">
       <div class="pchip active" data-product="Seater">Seater</div>
@@ -152,6 +185,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
       <div class="pchip active" data-product="Hybrid">Hybrid</div>
       <div class="pchip active" data-product="Volvo">Volvo</div>
     </div>
+    <button class="filter-reset" id="f-apply">Apply</button>
+    <button class="filter-reset" id="f-reset">↺ Reset</button>
   </div>
 
   <div class="page">
@@ -162,43 +197,122 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
     <div class="tab-panel active" data-panel="short">
       <div class="kpi-row">
         <div class="kpi"><div class="kpi-label">Flix departures</div>     <div class="kpi-value" id="kpi-flix-short">—</div></div>
-        <div class="kpi"><div class="kpi-label">Competitor departures</div><div class="kpi-value" id="kpi-comp-short">—</div></div>
+        <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Competitor departures</div><div class="kpi-value" id="kpi-comp-short">—</div></div>
         <div class="kpi"><div class="kpi-label">Flix seats offered</div>   <div class="kpi-value" id="kpi-seats-short">—</div></div>
-        <div class="kpi"><div class="kpi-label">Avg load %</div>           <div class="kpi-value" id="kpi-load-short">—</div></div>
+        <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Avg load %</div><div class="kpi-value" id="kpi-load-short">—</div></div>
       </div>
       <div class="g2">
-        <div class="card"><div class="card-head"><div class="card-title">Departures by hour band</div><div class="card-sub">D0-D4 · all selected operators</div></div><div class="card-body"><div class="placeholder">Endpoint stub returns no data yet. Run <code>/api/np-departures?pbd_range=d0-d4</code> once Phase 2 SQL is wired.</div></div></div>
-        <div class="card"><div class="card-head"><div class="card-title">Departures by day</div><div class="card-sub">Next 4 days, by operator</div></div><div class="card-body"><div class="placeholder">Stub — Phase 2</div></div></div>
+        <div class="card">
+          <div class="card-head"><div><div class="card-title">Departures by hour band</div><div class="card-sub">D0-D4 · by operator</div></div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="chart-hourband-short"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><div class="card-title">Departures by day</div><div class="card-sub">Next 4 days, by operator</div></div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="chart-byday-short"></canvas></div></div>
+        </div>
       </div>
-      <div class="card"><div class="card-head"><div class="card-title">Per-line departure table</div><div class="card-sub">Flix + competitors, with departure times</div></div><div class="card-body"><div class="placeholder">Stub — Phase 2</div></div></div>
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">Per-service departures</div><div class="card-sub">Flix + competitors, with departure times</div></div></div>
+        <div class="card-body nopad"><div style="max-height:400px;overflow-y:auto"><table class="tbl" id="tbl-byline-short"><thead><tr><th>Service</th><th>Corridor</th><th>Operator</th><th>Dep count</th><th>Departure times</th></tr></thead><tbody><tr><td colspan="5" class="state-msg">Loading…</td></tr></tbody></table></div></div>
+      </div>
     </div>
 
     <!-- ── TAB: LONG TERM ───────────────────────────────────────────────── -->
     <div class="tab-panel" data-panel="long">
       <div class="kpi-row">
         <div class="kpi"><div class="kpi-label">Flix departures (D5-D30)</div><div class="kpi-value" id="kpi-flix-long">—</div></div>
-        <div class="kpi"><div class="kpi-label">Comp departures (D5-D30)</div><div class="kpi-value" id="kpi-comp-long">—</div></div>
+        <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Comp departures (D5-D30)</div><div class="kpi-value" id="kpi-comp-long">—</div></div>
         <div class="kpi"><div class="kpi-label">Flix seats offered</div>      <div class="kpi-value" id="kpi-seats-long">—</div></div>
-        <div class="kpi"><div class="kpi-label">Corridors covered</div>       <div class="kpi-value" id="kpi-corr-long">—</div></div>
+        <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Avg load %</div><div class="kpi-value" id="kpi-load-long">—</div></div>
       </div>
       <div class="g2">
-        <div class="card"><div class="card-head"><div class="card-title">Weekly roll-up</div><div class="card-sub">D5-D30, departures by week × operator</div></div><div class="card-body"><div class="placeholder">Stub — Phase 2</div></div></div>
-        <div class="card"><div class="card-head"><div class="card-title">Day × hour heatmap</div><div class="card-sub">When competitors are running</div></div><div class="card-body"><div class="placeholder">Stub — Phase 2</div></div></div>
+        <div class="card">
+          <div class="card-head"><div><div class="card-title">Departures by hour band</div><div class="card-sub">D5-D30 · by operator</div></div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="chart-hourband-long"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><div class="card-title">Departures by day</div><div class="card-sub">D5-D30, by operator</div></div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="chart-byday-long"></canvas></div></div>
+        </div>
       </div>
-      <div class="card"><div class="card-head"><div class="card-title">Corridor-level table</div><div class="card-sub">Long-term coverage</div></div><div class="card-body"><div class="placeholder">Stub — Phase 2</div></div></div>
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">Per-service departures (D5-D30)</div><div class="card-sub">Long-term coverage</div></div></div>
+        <div class="card-body nopad"><div style="max-height:400px;overflow-y:auto"><table class="tbl" id="tbl-byline-long"><thead><tr><th>Service</th><th>Corridor</th><th>Operator</th><th>Dep count</th><th>Departure times</th></tr></thead><tbody><tr><td colspan="5" class="state-msg">Switch to this tab to load</td></tr></tbody></table></div></div>
+      </div>
     </div>
 
     <!-- ── TAB: HISTORY ─────────────────────────────────────────────────── -->
     <div class="tab-panel" data-panel="history">
-      <div class="kpi-row">
+      <div class="kpi-row" id="kpi-wow-row">
         <div class="kpi"><div class="kpi-label">WoW Flix</div>     <div class="kpi-value" id="kpi-wow-flix">—</div></div>
-        <div class="kpi"><div class="kpi-label">WoW IntrCity</div> <div class="kpi-value" id="kpi-wow-intr">—</div></div>
-        <div class="kpi"><div class="kpi-label">WoW Zingbus</div>  <div class="kpi-value" id="kpi-wow-zing">—</div></div>
+        <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">WoW IntrCity</div> <div class="kpi-value" id="kpi-wow-intr">—</div></div>
+        <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">WoW Zingbus</div>  <div class="kpi-value" id="kpi-wow-zing">—</div></div>
         <div class="kpi"><div class="kpi-label">History depth</div><div class="kpi-value" id="kpi-history-days">—</div></div>
       </div>
-      <div class="g2">
-        <div class="card"><div class="card-head"><div class="card-title">45-day trend</div><div class="card-sub">Departures per day × operator (latest scrape per bus)</div></div><div class="card-body"><div class="placeholder">Stub — Phase 2</div></div></div>
-        <div class="card"><div class="card-head"><div class="card-title">MoM</div><div class="card-sub">Available once we have 2+ months of stable data</div></div><div class="card-body"><div class="placeholder">Hidden until June 2026</div></div></div>
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">45-day trend</div><div class="card-sub">Departures per day × operator (latest scrape per bus)</div></div></div>
+        <div class="card-body"><div class="chart-wrap" style="height:340px"><canvas id="chart-trend-45"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- ── TAB: ADMIN ───────────────────────────────────────────────────── -->
+    <div class="tab-panel" data-panel="admin">
+      <div class="admin-grid">
+        <div class="card" style="margin:0">
+          <div class="card-body"><div class="kpi-label">Postgres</div><div id="admin-db-status" style="font-size:13px;font-weight:600;margin-top:4px">—</div></div>
+        </div>
+        <div class="card" style="margin:0">
+          <div class="card-body"><div class="kpi-label">BigQuery</div><div id="admin-bq-status" style="font-size:13px;font-weight:600;margin-top:4px">—</div></div>
+        </div>
+        <div class="card" style="margin:0">
+          <div class="card-body"><div class="kpi-label">Users</div><div id="admin-user-count" style="font-size:13px;font-weight:600;margin-top:4px">—</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div><div class="card-title">User Management</div><div class="card-sub">Create, edit, and disable NP-team logins</div></div>
+          <button class="btn primary" id="admin-add-btn">+ Add User</button>
+        </div>
+
+        <div class="add-user-form" id="admin-add-form">
+          <div class="add-user-grid">
+            <div class="add-user-field"><label>User ID</label><input id="new-uid" placeholder="e.g. np_jane"></div>
+            <div class="add-user-field"><label>Full Name</label><input id="new-name" placeholder="Jane Doe"></div>
+            <div class="add-user-field"><label>Password</label><input id="new-pwd" type="password" placeholder="temp password"></div>
+            <div class="add-user-field"><label>Role</label>
+              <select id="new-role">
+                <option value="np">NP (all NP tabs)</option>
+                <option value="user">User (selected tabs)</option>
+                <option value="admin">Admin (full access)</option>
+              </select>
+            </div>
+          </div>
+          <div class="tab-picker-wrap" id="new-tabs-wrap">
+            <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Tab Access</div>
+            <div class="tab-chk-row">
+              <label><input type="checkbox" value="short"   class="tab-chk" checked> Short-term</label>
+              <label><input type="checkbox" value="long"    class="tab-chk" checked> Long-term</label>
+              <label><input type="checkbox" value="history" class="tab-chk" checked> History</label>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn primary" id="admin-create-btn">Create User</button>
+            <button class="btn" id="admin-cancel-btn">Cancel</button>
+            <span id="admin-add-msg" style="font-size:12px;color:var(--text3)"></span>
+          </div>
+        </div>
+
+        <div class="card-body nopad">
+          <div style="overflow-x:auto">
+            <table class="tbl" id="admin-user-table">
+              <thead><tr>
+                <th>User ID</th><th>Name</th><th>Role</th><th>Tabs</th><th>Last Login</th><th>Status</th><th></th>
+              </tr></thead>
+              <tbody id="admin-user-body"><tr><td colspan="7" class="state-msg">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -206,24 +320,98 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 </div>
 
 <script>
-// ── auth ─────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ════════════════════════════════════════════════════════════════════════
 const TOKEN_KEY = 'np_dash_token';
 const $ = id => document.getElementById(id);
 
-async function api(path, opts={}){
+const CORRIDOR_LABELS = {
+  'IN01':'IN01 Northern Hub','IN02':'IN02 Northern Hub','IN03':'IN03 Northern Hub',
+  'IN04':'IN04 Northern Hub','IN05':'IN05 Western Hub','IN06':'IN06 Western Hub',
+  'IN07':'IN07 Western Hub','IN09':'IN09 Southern Hub','IN10':'IN10 Southern Hub',
+  'IN11':'IN11 Southern Hub','IN12':'IN12 Southern Hub',
+};
+
+const ROUTE_CORRIDOR = {
+  'delhi to chandigarh':'IN01','chandigarh to delhi':'IN01',
+  'delhi to shimla':'IN01','shimla to delhi':'IN01',
+  'delhi to dehradun':'IN01','dehradun to delhi':'IN01',
+  'delhi to manali':'IN01','manali to delhi':'IN01',
+  'delhi to lucknow':'IN02','lucknow to delhi':'IN02',
+  'delhi to indore':'IN03','indore to delhi':'IN03',
+  'delhi to ujjain':'IN03','ujjain to delhi':'IN03',
+  'delhi to jaipur':'IN04','jaipur to delhi':'IN04',
+  'mumbai to ujjain':'IN05','ujjain to mumbai':'IN05',
+  'pune to ujjain':'IN05','ujjain to pune':'IN05',
+  'mumbai to indore':'IN05','indore to mumbai':'IN05',
+  'indore to ujjain':'IN05','ujjain to indore':'IN05',
+  'indore to pune':'IN05','pune to indore':'IN05',
+  'hyderabad to pune':'IN06','pune to hyderabad':'IN06',
+  'pune to goa':'IN07','goa to pune':'IN07',
+  'mumbai to goa':'IN07','goa to mumbai':'IN07',
+  'bangalore to hyderabad':'IN09','hyderabad to bangalore':'IN09',
+  'bangalore to vijayawada':'IN09','vijayawada to bangalore':'IN09',
+  'hyderabad to vijayawada':'IN09','vijayawada to hyderabad':'IN09',
+  'hyderabad to visakhapatnam':'IN09','visakhapatnam to hyderabad':'IN09',
+  'hyderabad to nellore':'IN09','nellore to hyderabad':'IN09',
+  'hyderabad to tirupati':'IN09','tirupati to hyderabad':'IN09',
+  'chennai to hyderabad':'IN10','hyderabad to chennai':'IN10',
+  'chennai to vijayawada':'IN10','vijayawada to chennai':'IN10',
+  'bangalore to chennai':'IN11','chennai to bangalore':'IN11',
+  'bangalore to coimbatore':'IN11','coimbatore to bangalore':'IN11',
+  'bangalore to kochi':'IN11','kochi to bangalore':'IN11',
+  'chennai to coimbatore':'IN11','coimbatore to chennai':'IN11',
+  'chennai to madurai':'IN11','madurai to chennai':'IN11',
+  'chennai to nagercoil':'IN11','nagercoil to chennai':'IN11',
+  'bangalore to belgaum':'IN12','belgaum to bangalore':'IN12',
+  'bangalore to goa':'IN12','goa to bangalore':'IN12',
+  'bangalore to pune':'IN12','pune to bangalore':'IN12',
+  'bangalore to kundapur':'IN12','kundapur to bangalore':'IN12',
+  'bangalore to mangaluru':'IN12','mangaluru to bangalore':'IN12',
+  'bangalore to udupi':'IN12','udupi to bangalore':'IN12',
+};
+
+function getCorridor(rel) { return ROUTE_CORRIDOR[(rel||'').trim().toLowerCase()] || null; }
+
+const OP_COLORS = {
+  flix:'#5bbf00', intrcity:'#3b82f6', zingbus:'#f59e0b',
+  nuego:'#8b5cf6', freshbus:'#ef4444', laxmi:'#6b7280',
+};
+const OP_LABELS = {
+  flix:'Flix', intrcity:'IntrCity', zingbus:'Zingbus',
+  nuego:'NueGo', freshbus:'FreshBus', laxmi:'Laxmi',
+};
+
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+let _cityMap = {};       // origin city -> Set(destinations)
+let _allRelations = [];  // raw list from /api/np-relations
+let _user = null;
+const _charts = {};
+let _shortLoaded = false, _longLoaded = false, _historyLoaded = false, _adminLoaded = false;
+
+// ════════════════════════════════════════════════════════════════════════
+// API HELPER
+// ════════════════════════════════════════════════════════════════════════
+async function api(path, opts={}) {
   const t = localStorage.getItem(TOKEN_KEY);
   const res = await fetch(path, {
     ...opts,
     headers: {
       'Content-Type':'application/json',
       ...(t ? {'Authorization':'Bearer ' + t} : {}),
-      ...(opts.headers || {})
+      ...(opts.headers || {}),
     }
   });
   return res.json();
 }
 
-async function bootstrap(){
+// ════════════════════════════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════════════════════════════
+async function bootstrap() {
   const t = localStorage.getItem(TOKEN_KEY);
   if (!t) return showLogin();
   const r = await api('/api/auth');
@@ -231,77 +419,446 @@ async function bootstrap(){
   showApp(r.user);
 }
 
-function showLogin(){
+function showLogin() {
   $('login-view').style.display = 'flex';
   $('app-view').style.display   = 'none';
 }
 
-function showApp(user){
+function showApp(user) {
+  _user = user;
   $('login-view').style.display = 'none';
   $('app-view').style.display   = 'block';
-  $('user-name').textContent    = user.name || user.uid;
+  $('user-name').textContent    = `${user.name || user.uid}  ·  ${(user.role||'').toUpperCase()}`;
+
+  // Show Admin tab only for admin
+  $('nav-admin').style.display = user.role === 'admin' ? '' : 'none';
+
   loadFreshness();
+  loadRelations().then(() => {
+    populateRegionDropdown();
+    onRegionChange();
+    loadShortTab();
+  });
 }
 
 $('login-btn').addEventListener('click', async () => {
   const uid = $('login-uid').value.trim();
   const pwd = $('login-pwd').value;
-  if (!uid || !pwd) { showLoginErr('Enter user ID and password'); return; }
+  if (!uid || !pwd) return showLoginErr('Enter user ID and password');
   const r = await fetch('/api/auth', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({user_id: uid, password: pwd})
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({user_id:uid, password:pwd})
   }).then(r => r.json());
-  if (!r.ok) { showLoginErr(r.error || 'Login failed'); return; }
+  if (!r.ok) return showLoginErr(r.error || 'Login failed');
   localStorage.setItem(TOKEN_KEY, r.token);
   showApp(r.user);
 });
 
 $('login-pwd').addEventListener('keydown', e => { if (e.key === 'Enter') $('login-btn').click(); });
+$('logout-btn').addEventListener('click', () => { localStorage.removeItem(TOKEN_KEY); location.reload(); });
+function showLoginErr(m){ const e=$('login-err'); e.textContent=m; e.style.display='block'; }
 
-function showLoginErr(msg){
-  const el = $('login-err'); el.textContent = msg; el.style.display = 'block';
+// ════════════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ════════════════════════════════════════════════════════════════════════
+document.querySelectorAll('.nav-tab').forEach(t => {
+  t.addEventListener('click', () => switchTab(t.dataset.tab));
+});
+
+function switchTab(tab) {
+  document.querySelectorAll('.nav-tab').forEach(x => x.classList.toggle('active', x.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(x => x.classList.toggle('active', x.dataset.panel === tab));
+  // Filter bar visible on data tabs only
+  $('filter-bar').style.display = tab === 'admin' ? 'none' : '';
+
+  if (tab === 'short'   && !_shortLoaded)   loadShortTab();
+  if (tab === 'long'    && !_longLoaded)    loadLongTab();
+  if (tab === 'history' && !_historyLoaded) loadHistoryTab();
+  if (tab === 'admin'   && !_adminLoaded)   loadAdminTab();
 }
 
-$('logout-btn').addEventListener('click', () => {
-  localStorage.removeItem(TOKEN_KEY);
-  location.reload();
-});
+// ════════════════════════════════════════════════════════════════════════
+// FILTERS
+// ════════════════════════════════════════════════════════════════════════
+document.querySelectorAll('.pchip').forEach(c => c.addEventListener('click', () => c.classList.toggle('active')));
+$('f-region').addEventListener('change', onRegionChange);
+$('f-from').addEventListener('change', onFromChange);
+$('f-apply').addEventListener('click', applyFilters);
+$('f-reset').addEventListener('click', resetFilters);
 
-// ── tabs ────────────────────────────────────────────────────────────────
-document.querySelectorAll('.nav-tab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.nav-tab').forEach(x => x.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    document.querySelector(`.tab-panel[data-panel="${t.dataset.tab}"]`).classList.add('active');
+function populateRegionDropdown() {
+  const sel = $('f-region');
+  sel.innerHTML = '<option value="">All India</option>' +
+    Object.keys(CORRIDOR_LABELS).sort().map(c => `<option value="${c}">${CORRIDOR_LABELS[c]}</option>`).join('');
+}
+
+function buildCityMap(relations) {
+  const map = {};
+  relations.forEach(rel => {
+    const idx = rel.indexOf(' to ');
+    if (idx === -1) return;
+    const from = rel.slice(0, idx);
+    const to   = rel.slice(idx + 4);
+    if (!map[from]) map[from] = new Set();
+    map[from].add(to);
   });
-});
+  return map;
+}
 
-// ── product chips ──────────────────────────────────────────────────────
-document.querySelectorAll('.pchip').forEach(c => {
-  c.addEventListener('click', () => c.classList.toggle('active'));
-});
+function relationsInRegion(region) {
+  if (!region) return _allRelations;
+  return _allRelations.filter(r => getCorridor(r) === region);
+}
 
-// ── freshness ──────────────────────────────────────────────────────────
-async function loadFreshness(){
+function onRegionChange() {
+  const region = $('f-region').value;
+  const scoped = relationsInRegion(region);
+  const map = buildCityMap(scoped);
+  const fromSel = $('f-from');
+  const prev = fromSel.value;
+  const cities = Object.keys(map).sort();
+  fromSel.innerHTML = '<option value="">All Cities</option>' +
+    cities.map(c => `<option value="${c}"${c===prev?' selected':''}>${c}</option>`).join('');
+  onFromChange();
+}
+
+function onFromChange() {
+  const region = $('f-region').value;
+  const scoped = relationsInRegion(region);
+  const map = buildCityMap(scoped);
+  const from = $('f-from').value;
+  const toSel = $('f-to');
+  const prev = toSel.value;
+  const dests = from && map[from] ? [...map[from]].sort() : [];
+  toSel.innerHTML = '<option value="">All Destinations</option>' +
+    dests.map(t => `<option value="${t}"${t===prev?' selected':''}>${t}</option>`).join('');
+}
+
+function currentFilters() {
+  const region = $('f-region').value;
+  const from   = $('f-from').value;
+  const to     = $('f-to').value;
+  const line   = $('f-line').value.trim();
+  const products = [...document.querySelectorAll('.pchip.active')].map(c => c.dataset.product);
+  const f = {};
+  // relation (specific) overrides region
+  if (from && to) f.relation = `${from} to ${to}`;
+  else if (region) f.region = region;
+  if (line) f.line_code = line;
+  if (products.length && products.length < 4) f.product_type = products.join(',');
+  return f;
+}
+
+function filterQS(extra={}) {
+  const f = { ...currentFilters(), ...extra };
+  const qs = new URLSearchParams(f).toString();
+  return qs ? '?' + qs : '';
+}
+
+function applyFilters() {
+  _shortLoaded = _longLoaded = _historyLoaded = false;
+  // Reload whichever tab is active
+  const active = document.querySelector('.nav-tab.active').dataset.tab;
+  if (active === 'short')   loadShortTab();
+  if (active === 'long')    loadLongTab();
+  if (active === 'history') loadHistoryTab();
+}
+
+function resetFilters() {
+  $('f-region').value = '';
+  onRegionChange();
+  $('f-line').value = '';
+  document.querySelectorAll('.pchip').forEach(c => c.classList.add('active'));
+  applyFilters();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// FRESHNESS + RELATIONS
+// ════════════════════════════════════════════════════════════════════════
+async function loadFreshness() {
   try {
     const r = await fetch('/api/freshness').then(r => r.json());
     if (!r.ok) { $('freshness-text').textContent = 'crawl: unknown'; return; }
     $('freshness-text').textContent = `crawl: ${r.latest} IST · ${r.history_days}d history`;
-    if (r.excluded && r.excluded.length){
+    $('kpi-history-days') && ($('kpi-history-days').textContent = r.history_days + 'd');
+    if (r.excluded && r.excluded.length) {
       const b = $('fresh-banner');
       const list = r.excluded.slice(0, 5).map(e => `${e.date} (${e.reason})`).join(' · ');
       b.innerHTML = `<b>${r.excluded.length} day(s) excluded from history</b> due to partial crawls: ${list}`;
       b.classList.add('show');
     }
-    const hd = document.getElementById('kpi-history-days');
-    if (hd) hd.textContent = r.history_days + 'd';
   } catch (e) {
     $('freshness-text').textContent = 'crawl: error';
   }
 }
 
+async function loadRelations() {
+  try {
+    const r = await fetch('/api/np-relations').then(r => r.json());
+    if (r.ok && r.relations) {
+      _allRelations = r.relations;
+      _cityMap = buildCityMap(r.relations);
+    }
+  } catch (e) { /* dropdowns just stay empty */ }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// CHART HELPERS
+// ════════════════════════════════════════════════════════════════════════
+function destroyChart(id) {
+  if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
+}
+
+function fmtNumber(n) {
+  if (n == null) return '—';
+  return new Intl.NumberFormat('en-IN').format(n);
+}
+
+function renderHourBandChart(canvasId, byOpHourBand) {
+  destroyChart(canvasId);
+  const bands = ['00:00-05:59','06:00-11:59','12:00-17:59','18:00-23:59'];
+  const operators = [...new Set(byOpHourBand.map(r => r.operator))].sort();
+  const datasets = operators.map(op => ({
+    label: OP_LABELS[op] || op,
+    backgroundColor: OP_COLORS[op] || '#888',
+    borderColor: OP_COLORS[op] || '#888',
+    data: bands.map(b => {
+      const row = byOpHourBand.find(r => r.operator === op && r.hour_band === b);
+      return row ? row.departure_count : 0;
+    }),
+  }));
+  const ctx = $(canvasId).getContext('2d');
+  _charts[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: bands, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position:'bottom', labels:{ boxWidth:10, font:{size:11} } } },
+      scales: { x: { stacked:false }, y: { beginAtZero:true, ticks:{font:{size:10}} } }
+    }
+  });
+}
+
+function renderByDayChart(canvasId, byDay) {
+  destroyChart(canvasId);
+  const dates = [...new Set(byDay.map(r => r.date))].sort();
+  const operators = [...new Set(byDay.map(r => r.operator))].sort();
+  const datasets = operators.map(op => ({
+    label: OP_LABELS[op] || op,
+    borderColor: OP_COLORS[op] || '#888',
+    backgroundColor: OP_COLORS[op] || '#888',
+    fill: false, tension: 0.25, pointRadius: 3,
+    data: dates.map(d => {
+      const row = byDay.find(r => r.date === d && r.operator === op);
+      return row ? row.departure_count : 0;
+    }),
+  }));
+  const ctx = $(canvasId).getContext('2d');
+  _charts[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: { labels: dates, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position:'bottom', labels:{ boxWidth:10, font:{size:11} } } },
+      scales: { x: { ticks:{font:{size:10}} }, y: { beginAtZero:true, ticks:{font:{size:10}} } }
+    }
+  });
+}
+
+function renderByLineTable(tbodyId, byLine) {
+  const tbody = document.querySelector(`#${tbodyId} tbody`);
+  if (!byLine.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="state-msg">No departures for the selected filters</td></tr>';
+    return;
+  }
+  tbody.innerHTML = byLine.slice(0, 300).map(r => `
+    <tr>
+      <td class="route">${r.service_id || '—'}</td>
+      <td>${r.corridor || ''}</td>
+      <td><span style="color:${OP_COLORS[r.operator]||'#888'};font-weight:600">${OP_LABELS[r.operator]||r.operator}</span></td>
+      <td>${fmtNumber(r.departure_count)}</td>
+      <td style="color:var(--text3);white-space:normal">${(r.departure_times||[]).slice(0,10).join(', ')}${(r.departure_times||[]).length>10?` … +${r.departure_times.length-10}`:''}</td>
+    </tr>
+  `).join('');
+}
+
+function rollupKPIs(byOpHourBand, suffix) {
+  let flixDep = 0, compDep = 0, flixSeats = 0;
+  let loadSum = 0, loadN = 0;
+  byOpHourBand.forEach(r => {
+    if (r.operator === 'flix') {
+      flixDep += r.departure_count;
+      flixSeats += r.seats_offered || 0;
+    } else {
+      compDep += r.departure_count;
+    }
+    if (r.avg_load_pct != null) {
+      loadSum += r.avg_load_pct * r.departure_count;
+      loadN   += r.departure_count;
+    }
+  });
+  $(`kpi-flix-${suffix}`).textContent  = fmtNumber(flixDep);
+  $(`kpi-comp-${suffix}`).textContent  = fmtNumber(compDep);
+  $(`kpi-seats-${suffix}`).textContent = fmtNumber(flixSeats);
+  $(`kpi-load-${suffix}`).textContent  = loadN ? (loadSum / loadN).toFixed(1) + '%' : '—';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// TAB LOADERS
+// ════════════════════════════════════════════════════════════════════════
+async function loadShortTab() {
+  _shortLoaded = true;
+  const r = await api('/api/np-departures' + filterQS({pbd_range:'d0-d4'}));
+  if (!r.ok) { console.error('np-departures error', r); return; }
+  rollupKPIs(r.by_operator_hourband || [], 'short');
+  renderHourBandChart('chart-hourband-short', r.by_operator_hourband || []);
+  renderByDayChart('chart-byday-short', r.by_day || []);
+  renderByLineTable('tbl-byline-short', r.by_line || []);
+}
+
+async function loadLongTab() {
+  _longLoaded = true;
+  const r = await api('/api/np-departures' + filterQS({pbd_range:'d5-d30'}));
+  if (!r.ok) { console.error('np-departures error', r); return; }
+  rollupKPIs(r.by_operator_hourband || [], 'long');
+  renderHourBandChart('chart-hourband-long', r.by_operator_hourband || []);
+  renderByDayChart('chart-byday-long', r.by_day || []);
+  renderByLineTable('tbl-byline-long', r.by_line || []);
+}
+
+async function loadHistoryTab() {
+  _historyLoaded = true;
+  const [wow, trend] = await Promise.all([
+    api('/api/np-history' + filterQS({view:'wow'})),
+    api('/api/np-history' + filterQS({view:'trend_45'})),
+  ]);
+  // WoW KPIs
+  if (wow.ok && wow.delta) {
+    const fmtDelta = (op) => {
+      const d = wow.delta[op];
+      if (!d) return '—';
+      const pct = d.pct_delta == null ? '' : ` (${d.pct_delta>0?'+':''}${d.pct_delta}%)`;
+      return `${fmtNumber(d.current)}${pct}`;
+    };
+    $('kpi-wow-flix').textContent = fmtDelta('flix');
+    $('kpi-wow-intr').textContent = fmtDelta('intrcity');
+    $('kpi-wow-zing').textContent = fmtDelta('zingbus');
+  }
+  // 45-day trend
+  if (trend.ok && trend.points) {
+    const points = trend.points;
+    const dates = [...new Set(points.map(p => p.departure_date))].sort();
+    const operators = [...new Set(points.map(p => p.operator))].sort();
+    destroyChart('chart-trend-45');
+    const datasets = operators.map(op => ({
+      label: OP_LABELS[op] || op,
+      borderColor: OP_COLORS[op] || '#888',
+      backgroundColor: OP_COLORS[op] || '#888',
+      fill: false, tension: 0.2, pointRadius: 2,
+      data: dates.map(d => {
+        const row = points.find(p => p.departure_date === d && p.operator === op);
+        return row ? row.departure_count : 0;
+      }),
+    }));
+    const ctx = $('chart-trend-45').getContext('2d');
+    _charts['chart-trend-45'] = new Chart(ctx, {
+      type: 'line',
+      data: { labels: dates, datasets },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom', labels:{boxWidth:10,font:{size:11}} } },
+        scales:{ x:{ ticks:{font:{size:9},maxRotation:90,minRotation:60} }, y:{ beginAtZero:true } }
+      }
+    });
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// ADMIN PANEL
+// ════════════════════════════════════════════════════════════════════════
+async function loadAdminTab() {
+  _adminLoaded = true;
+  try {
+    const s = await api('/api/admin?action=status');
+    if (s.ok) {
+      $('admin-db-status').innerHTML = `<span style="color:${s.status.db==='connected'?'#5bbf00':'#ef4444'}">${s.status.db}</span>`;
+      $('admin-bq-status').innerHTML = `<span style="color:${s.status.bigquery==='connected'?'#5bbf00':'#ef4444'}">${s.status.bigquery}</span>`;
+      $('admin-user-count').textContent = `${s.status.active_users} active / ${s.status.total_users} total`;
+    }
+  } catch (_) {}
+  await refreshUserTable();
+}
+
+async function refreshUserTable() {
+  const tbody = $('admin-user-body');
+  tbody.innerHTML = '<tr><td colspan="7" class="state-msg">Loading…</td></tr>';
+  try {
+    const r = await api('/api/admin');
+    if (!r.ok) throw new Error(r.error);
+    tbody.innerHTML = (r.users || []).map(u => {
+      const tabBadges = u.role === 'admin' ? '<span style="color:#5bbf00">All (admin)</span>' :
+        u.role === 'np' ? 'All NP tabs' :
+        (u.tabs || []).map(t => `<span style="background:var(--surface2);padding:1px 6px;border-radius:4px;margin-right:3px">${t}</span>`).join('');
+      const loginStr = u.last_login ? new Date(u.last_login).toLocaleString('en-IN',{dateStyle:'short',timeStyle:'short'}) : 'Never';
+      const statusBadge = u.active
+        ? '<span style="color:#5bbf00;font-weight:600">Active</span>'
+        : '<span style="color:#ef4444;font-weight:600">Disabled</span>';
+      const actions = u.active
+        ? `<button class="btn danger" style="font-size:10px;padding:2px 8px" onclick="deactivateUser('${u.user_id}')">Disable</button>`
+        : '';
+      return `<tr>
+        <td class="route">${u.user_id}</td><td>${u.name}</td>
+        <td><span style="font-weight:600">${u.role.toUpperCase()}</span></td>
+        <td>${tabBadges}</td>
+        <td style="color:var(--text3)">${loginStr}</td>
+        <td>${statusBadge}</td>
+        <td>${actions}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="7" class="state-msg">No users yet</td></tr>';
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="7" class="state-msg">Error: ${e.message}</td></tr>`;
+  }
+}
+
+$('admin-add-btn').addEventListener('click', () => $('admin-add-form').classList.toggle('show'));
+$('admin-cancel-btn').addEventListener('click', () => $('admin-add-form').classList.remove('show'));
+$('new-role').addEventListener('change', () => {
+  $('new-tabs-wrap').classList.toggle('show', $('new-role').value === 'user');
+});
+
+$('admin-create-btn').addEventListener('click', async () => {
+  const uid  = $('new-uid').value.trim();
+  const name = $('new-name').value.trim();
+  const pwd  = $('new-pwd').value;
+  const role = $('new-role').value;
+  const msg  = $('admin-add-msg');
+  if (!uid || !name || !pwd) { msg.textContent='Fill all fields'; msg.style.color='var(--red)'; return; }
+  let tabs = null;
+  if (role === 'user') {
+    tabs = [...document.querySelectorAll('.tab-chk:checked')].map(c => c.value);
+    if (!tabs.length) { msg.textContent='Pick at least one tab'; msg.style.color='var(--red)'; return; }
+  }
+  msg.textContent = 'Creating…'; msg.style.color = 'var(--text3)';
+  const r = await api('/api/admin', {
+    method:'POST', body: JSON.stringify({user_id:uid, name, password:pwd, role, tabs})
+  });
+  if (!r.ok) { msg.textContent = r.error; msg.style.color = 'var(--red)'; return; }
+  msg.textContent = `✓ ${uid} created`; msg.style.color = 'var(--flix)';
+  $('new-uid').value = $('new-name').value = $('new-pwd').value = '';
+  await refreshUserTable();
+});
+
+async function deactivateUser(uid) {
+  if (!confirm(`Disable user "${uid}"?`)) return;
+  const r = await api(`/api/admin?user_id=${encodeURIComponent(uid)}`, { method:'DELETE' });
+  if (!r.ok) { alert('Error: ' + r.error); return; }
+  await refreshUserTable();
+}
+window.deactivateUser = deactivateUser;
+
+// ════════════════════════════════════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════════════════════════════════════
 bootstrap();
 </script>
 </body>
