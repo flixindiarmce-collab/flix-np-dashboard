@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<title>Flix · Network Planning Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f2f5;--surface:#ffffff;--surface2:#f7f8fa;--border:#e4e7ed;--border2:#cdd1db;
+  --text:#111827;--text2:#4b5563;--text3:#9ca3af;
+  --flix:#5bbf00;--flix-bg:#f2fce8;--flix-bdr:#c5e89a;
+  --red:#ef4444;--red-bg:#fff1f1;--red-bdr:#fecaca;
+  --amber:#f59e0b;--amber-bg:#fffbeb;--amber-bdr:#fde68a;
+  --blue:#3b82f6;--blue-bg:#eff6ff;--blue-bdr:#bfdbfe;
+  --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+  --r:10px;--shadow:0 1px 3px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.04);
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13px;min-height:100vh}
+
+/* login */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:32px 36px;width:360px}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+.login-icon{width:36px;height:36px;border-radius:8px;background:var(--flix);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff}
+.login-title{font-weight:700;font-size:15px}
+.login-sub{font-size:10px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--mono)}
+.login-card label{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em}
+.login-card input{width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);font-size:13px;font-family:var(--font);outline:none;margin-bottom:14px;transition:border-color .15s,box-shadow .15s}
+.login-card input:focus{border-color:var(--flix);box-shadow:0 0 0 3px var(--flix-bg)}
+.login-card button{width:100%;padding:10px;border-radius:8px;background:var(--flix);color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);transition:filter .15s}
+.login-card button:hover{filter:brightness(1.08)}
+.login-err{font-size:12px;color:var(--red);background:var(--red-bg);border:1px solid var(--red-bdr);border-radius:6px;padding:8px 10px;margin-bottom:14px;display:none}
+
+/* topbar */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0;padding:0 24px;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 1px 0 var(--border),0 2px 8px rgba(0,0,0,.04)}
+.logo-block{display:flex;align-items:center;gap:10px;margin-right:28px}
+.logo-icon{width:32px;height:32px;border-radius:8px;background:var(--flix);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff}
+.logo-title{font-weight:700;font-size:13px;line-height:1.2;color:var(--text)}
+.logo-sub{font-size:9px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--mono)}
+.nav-tabs{display:flex;gap:2px;margin-right:auto}
+.nav-tab{padding:6px 14px;border-radius:7px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap}
+.nav-tab:hover{background:var(--surface2);color:var(--text)}
+.nav-tab.active{background:var(--flix-bg);color:var(--flix);border-color:var(--flix-bdr);font-weight:600}
+.user-block{display:flex;align-items:center;gap:10px;margin-left:16px}
+.user-name{font-size:12px;color:var(--text2);font-weight:500}
+.logout{font-size:11px;color:var(--text3);cursor:pointer;font-family:var(--mono);padding:4px 10px;border-radius:6px;border:1px solid var(--border)}
+.logout:hover{background:var(--surface2);color:var(--text)}
+.last-run{font-size:11px;color:var(--text3);font-family:var(--mono);margin-left:16px;white-space:nowrap}
+.pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--flix);margin-right:5px;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* filter bar */
+.filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:9px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.filter-label{font-size:11px;font-family:var(--mono);color:var(--text3)}
+.filter-group{display:flex;align-items:center;gap:6px}
+.filter-input,.filter-select{padding:5px 10px;border-radius:7px;border:1.5px solid var(--border);font-size:12px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none;transition:border-color .15s}
+.filter-input:focus,.filter-select:focus{border-color:var(--flix);box-shadow:0 0 0 3px var(--flix-bg)}
+.product-chips{display:flex;gap:4px}
+.pchip{padding:3px 10px;border-radius:14px;font-size:11px;font-weight:500;border:1.5px solid var(--border);color:var(--text2);cursor:pointer;font-family:var(--mono)}
+.pchip.active{border-color:var(--flix);background:var(--flix-bg);color:var(--flix)}
+
+/* page */
+.page{padding:20px 24px;max-width:1700px;margin:0 auto}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* freshness banner */
+.fresh-banner{background:var(--amber-bg);border:1px solid var(--amber-bdr);border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);display:none}
+.fresh-banner.show{display:block}
+.fresh-banner b{color:var(--amber);font-weight:600}
+
+/* kpi */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,var(--flix))}
+.kpi-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;font-family:var(--mono)}
+.kpi-value{font-size:26px;font-weight:700;line-height:1;font-family:var(--mono)}
+.kpi-delta{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:2px 8px;border-radius:5px;margin-top:8px;font-family:var(--mono)}
+.kpi-delta.pos{background:var(--flix-bg);color:var(--flix)}
+.kpi-delta.neg{background:var(--red-bg);color:var(--red)}
+
+/* card */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.card-head{padding:12px 16px;border-bottom:1px solid var(--border)}
+.card-title{font-size:13px;font-weight:600}
+.card-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.card-body{padding:14px 16px}
+.placeholder{padding:40px;text-align:center;color:var(--text3);font-size:13px}
+.placeholder code{font-family:var(--mono);background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:12px;color:var(--text2)}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ─────────────────────────────────────────────────────────────── -->
+<div id="login-view" class="login-wrap" style="display:none">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-icon">F</div>
+      <div>
+        <div class="login-title">Network Planning</div>
+        <div class="login-sub">Flix · Departures Intelligence</div>
+      </div>
+    </div>
+    <div id="login-err" class="login-err"></div>
+    <label>User ID</label>
+    <input id="login-uid" type="text" autocomplete="username" autofocus>
+    <label>Password</label>
+    <input id="login-pwd" type="password" autocomplete="current-password">
+    <button id="login-btn">Sign in</button>
+  </div>
+</div>
+
+<!-- ── APP ───────────────────────────────────────────────────────────────── -->
+<div id="app-view" style="display:none">
+
+  <div class="topbar">
+    <div class="logo-block">
+      <div class="logo-icon">F</div>
+      <div>
+        <div class="logo-title">Network Planning</div>
+        <div class="logo-sub">Departures · D0-D30</div>
+      </div>
+    </div>
+    <div class="nav-tabs">
+      <div class="nav-tab active" data-tab="short">Short-term (D0-D4)</div>
+      <div class="nav-tab"        data-tab="long">Long-term (D5-D30)</div>
+      <div class="nav-tab"        data-tab="history">History (45d / WoW)</div>
+    </div>
+    <div class="last-run"><span class="pulse"></span><span id="freshness-text">loading…</span></div>
+    <div class="user-block">
+      <span class="user-name" id="user-name"></span>
+      <span class="logout" id="logout-btn">Sign out</span>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <span class="filter-label">CORRIDOR</span>
+    <input class="filter-input" id="f-corridor" placeholder="e.g. Delhi → Lucknow" style="width:200px">
+    <span class="filter-label">HUB</span>
+    <input class="filter-input" id="f-hub" placeholder="e.g. Delhi" style="width:120px">
+    <span class="filter-label">LINE</span>
+    <input class="filter-input" id="f-line" placeholder="line code" style="width:100px">
+    <span class="filter-label">PRODUCT</span>
+    <div class="product-chips" id="f-products">
+      <div class="pchip active" data-product="Seater">Seater</div>
+      <div class="pchip active" data-product="Sleeper">Sleeper</div>
+      <div class="pchip active" data-product="Hybrid">Hybrid</div>
+      <div class="pchip active" data-product="Volvo">Volvo</div>
+    </div>
+  </div>
+
+  <div class="page">
+
+    <div id="fresh-banner" class="fresh-banner"></div>
+
+    <!-- ── TAB: SHORT TERM ──────────────────────────────────────────────── -->
+    <div class="tab-panel active" data-panel="short">
+      <div class="kpi-row">
+        <div class="kpi"><div class="kpi-label">Flix departures</div>     <div class="kpi-value" id="kpi-flix-short">—</div></div>
+        <div class="kpi"><div class="kpi-label">Competitor departures</div><div class="kpi-value" id="kpi-comp-short">—</div></div>
+        <div class="kpi"><div class="kpi-label">Flix seats offered</div>   <div class="kpi-value" id="kpi-seats-short">—</div></div>
+        <div class="kpi"><div class="kpi-label">Avg load %</div>           <div class="kpi-value" id="kpi-load-short">—</div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="card-head"><div class="card-title">Departures by hour band</div><div class="card-sub">D0-D4 · all selected operators</div></div><div class="card-body"><div class="placeholder">Endpoint stub returns no data yet. Run <code>/api/np-departures?pbd_range=d0-d4</code> once Phase 2 SQL is wired.</div></div></div>
+        <div class="card"><div class="card-head"><div class="card-title">Departures by day</div><div class="card-sub">Next 4 days, by operator</div></div><div class="card-body"><div class="placeholder">Stub — Phase 2</div></div></div>
+      </div>
+      <div class="card"><div class="card-head"><div class="card-title">Per-line departure table</div><div class="card-sub">Flix + competitors, with departure times</div></div><div class="card-body"><div class="placeholder">Stub — Phase 2</div></div></div>
+    </div>
+
+    <!-- ── TAB: LONG TERM ───────────────────────────────────────────────── -->
+    <div class="tab-panel" data-panel="long">
+      <div class="kpi-row">
+        <div class="kpi"><div class="kpi-label">Flix departures (D5-D30)</div><div class="kpi-value" id="kpi-flix-long">—</div></div>
+        <div class="kpi"><div class="kpi-label">Comp departures (D5-D30)</div><div class="kpi-value" id="kpi-comp-long">—</div></div>
+        <div class="kpi"><div class="kpi-label">Flix seats offered</div>      <div class="kpi-value" id="kpi-seats-long">—</div></div>
+        <div class="kpi"><div class="kpi-label">Corridors covered</div>       <div class="kpi-value" id="kpi-corr-long">—</div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="card-head"><div class="card-title">Weekly roll-up</div><div class="card-sub">D5-D30, departures by week × operator</div></div><div class="card-body"><div class="placeholder">Stub — Phase 2</div></div></div>
+        <div class="card"><div class="card-head"><div class="card-title">Day × hour heatmap</div><div class="card-sub">When competitors are running</div></div><div class="card-body"><div class="placeholder">Stub — Phase 2</div></div></div>
+      </div>
+      <div class="card"><div class="card-head"><div class="card-title">Corridor-level table</div><div class="card-sub">Long-term coverage</div></div><div class="card-body"><div class="placeholder">Stub — Phase 2</div></div></div>
+    </div>
+
+    <!-- ── TAB: HISTORY ─────────────────────────────────────────────────── -->
+    <div class="tab-panel" data-panel="history">
+      <div class="kpi-row">
+        <div class="kpi"><div class="kpi-label">WoW Flix</div>     <div class="kpi-value" id="kpi-wow-flix">—</div></div>
+        <div class="kpi"><div class="kpi-label">WoW IntrCity</div> <div class="kpi-value" id="kpi-wow-intr">—</div></div>
+        <div class="kpi"><div class="kpi-label">WoW Zingbus</div>  <div class="kpi-value" id="kpi-wow-zing">—</div></div>
+        <div class="kpi"><div class="kpi-label">History depth</div><div class="kpi-value" id="kpi-history-days">—</div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="card-head"><div class="card-title">45-day trend</div><div class="card-sub">Departures per day × operator (latest scrape per bus)</div></div><div class="card-body"><div class="placeholder">Stub — Phase 2</div></div></div>
+        <div class="card"><div class="card-head"><div class="card-title">MoM</div><div class="card-sub">Available once we have 2+ months of stable data</div></div><div class="card-body"><div class="placeholder">Hidden until June 2026</div></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── auth ─────────────────────────────────────────────────────────────────
+const TOKEN_KEY = 'np_dash_token';
+const $ = id => document.getElementById(id);
+
+async function api(path, opts={}){
+  const t = localStorage.getItem(TOKEN_KEY);
+  const res = await fetch(path, {
+    ...opts,
+    headers: {
+      'Content-Type':'application/json',
+      ...(t ? {'Authorization':'Bearer ' + t} : {}),
+      ...(opts.headers || {})
+    }
+  });
+  return res.json();
+}
+
+async function bootstrap(){
+  const t = localStorage.getItem(TOKEN_KEY);
+  if (!t) return showLogin();
+  const r = await api('/api/auth');
+  if (!r.ok) { localStorage.removeItem(TOKEN_KEY); return showLogin(); }
+  showApp(r.user);
+}
+
+function showLogin(){
+  $('login-view').style.display = 'flex';
+  $('app-view').style.display   = 'none';
+}
+
+function showApp(user){
+  $('login-view').style.display = 'none';
+  $('app-view').style.display   = 'block';
+  $('user-name').textContent    = user.name || user.uid;
+  loadFreshness();
+}
+
+$('login-btn').addEventListener('click', async () => {
+  const uid = $('login-uid').value.trim();
+  const pwd = $('login-pwd').value;
+  if (!uid || !pwd) { showLoginErr('Enter user ID and password'); return; }
+  const r = await fetch('/api/auth', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({user_id: uid, password: pwd})
+  }).then(r => r.json());
+  if (!r.ok) { showLoginErr(r.error || 'Login failed'); return; }
+  localStorage.setItem(TOKEN_KEY, r.token);
+  showApp(r.user);
+});
+
+$('login-pwd').addEventListener('keydown', e => { if (e.key === 'Enter') $('login-btn').click(); });
+
+function showLoginErr(msg){
+  const el = $('login-err'); el.textContent = msg; el.style.display = 'block';
+}
+
+$('logout-btn').addEventListener('click', () => {
+  localStorage.removeItem(TOKEN_KEY);
+  location.reload();
+});
+
+// ── tabs ────────────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.querySelector(`.tab-panel[data-panel="${t.dataset.tab}"]`).classList.add('active');
+  });
+});
+
+// ── product chips ──────────────────────────────────────────────────────
+document.querySelectorAll('.pchip').forEach(c => {
+  c.addEventListener('click', () => c.classList.toggle('active'));
+});
+
+// ── freshness ──────────────────────────────────────────────────────────
+async function loadFreshness(){
+  try {
+    const r = await fetch('/api/freshness').then(r => r.json());
+    if (!r.ok) { $('freshness-text').textContent = 'crawl: unknown'; return; }
+    $('freshness-text').textContent = `crawl: ${r.latest} IST · ${r.history_days}d history`;
+    if (r.excluded && r.excluded.length){
+      const b = $('fresh-banner');
+      const list = r.excluded.slice(0, 5).map(e => `${e.date} (${e.reason})`).join(' · ');
+      b.innerHTML = `<b>${r.excluded.length} day(s) excluded from history</b> due to partial crawls: ${list}`;
+      b.classList.add('show');
+    }
+    const hd = document.getElementById('kpi-history-days');
+    if (hd) hd.textContent = r.history_days + 'd';
+  } catch (e) {
+    $('freshness-text').textContent = 'crawl: error';
+  }
+}
+
+bootstrap();
+</script>
+</body>
+</html>
