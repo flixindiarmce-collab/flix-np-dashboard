@@ -22,6 +22,7 @@ Returns:
 """
 import json
 import os
+import re
 from collections import defaultdict
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs
@@ -117,11 +118,26 @@ def _sql_string_escape(s: str) -> str:
     return s.replace("'", "''")
 
 
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
 def _build_query(params: dict) -> tuple[str, dict]:
     pbd_range = params.get("pbd_range", "d0-d30")
     if pbd_range not in PBD_RANGES:
         pbd_range = "d0-d30"
     pbd_lower, pbd_upper = PBD_RANGES[pbd_range]
+
+    # Explicit dep_from / dep_to override pbd_range
+    dep_from = (params.get("dep_from") or "").strip()
+    dep_to   = (params.get("dep_to")   or "").strip()
+    if _DATE_RE.match(dep_from) and _DATE_RE.match(dep_to):
+        date_lower_sql = f"DATE '{dep_from}'"
+        date_upper_sql = f"DATE '{dep_to}'"
+        applied_date = {"dep_from": dep_from, "dep_to": dep_to}
+    else:
+        date_lower_sql = f"DATE_ADD(CURRENT_DATE('Asia/Kolkata'), INTERVAL {pbd_lower} DAY)"
+        date_upper_sql = f"DATE_ADD(CURRENT_DATE('Asia/Kolkata'), INTERVAL {pbd_upper} DAY)"
+        applied_date = {"pbd_range": pbd_range}
 
     # Operator filter — default to all known operators
     op_keys = params.get("operators", "").split(",") if params.get("operators") else list(OPERATOR_PATTERNS.keys())
@@ -175,9 +191,7 @@ def _build_query(params: dict) -> tuple[str, dict]:
             ) AS rn
           FROM `redbus-agent-490708.redbus.bus_inventory`
           WHERE scrape_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 DAY)
-            AND PARSE_DATE('%d-%b-%Y', departure_date)
-                  BETWEEN DATE_ADD(CURRENT_DATE('Asia/Kolkata'), INTERVAL {pbd_lower} DAY)
-                      AND DATE_ADD(CURRENT_DATE('Asia/Kolkata'), INTERVAL {pbd_upper} DAY)
+            AND PARSE_DATE('%d-%b-%Y', departure_date) BETWEEN {date_lower_sql} AND {date_upper_sql}
             AND ({operator_filter})
             {product_filter}
             {extra_filter}
@@ -212,11 +226,11 @@ def _build_query(params: dict) -> tuple[str, dict]:
     """
 
     applied = {
-        "pbd_range":    pbd_range,
+        **applied_date,
         "operators":    op_keys,
         "product_type": products,
-        "corridor":     params.get("corridor"),
-        "origin_hub":   params.get("origin_hub"),
+        "region":       params.get("region"),
+        "relation":     params.get("relation"),
         "line_code":    params.get("line_code"),
     }
     return sql, applied

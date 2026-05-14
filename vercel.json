@@ -1,11 +1,5 @@
 {
   "version": 2,
-  "functions": {
-    "api/np_departures.py": { "maxDuration": 60 },
-    "api/np_history.py":    { "maxDuration": 60 },
-    "api/np_relations.py":  { "maxDuration": 30 },
-    "api/freshness.py":     { "maxDuration": 15 }
-  },
   "builds": [
     { "src": "api/np_departures.py", "use": "@vercel/python" },
     { "src": "api/np_history.py",    "use": "@vercel/python" },

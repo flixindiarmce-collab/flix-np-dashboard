@@ -194,6 +194,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
     </select>
     <span class="filter-label">LINE</span>
     <input class="filter-input" id="f-line" placeholder="service id" style="width:110px;font-family:var(--mono);font-size:11px">
+    <span class="filter-label">DEP FROM</span>
+    <input class="filter-input" id="f-dep-from" type="date" style="width:140px;font-family:var(--mono);font-size:11px">
+    <span class="filter-label">DEP TO</span>
+    <input class="filter-input" id="f-dep-to" type="date" style="width:140px;font-family:var(--mono);font-size:11px">
     <span class="filter-label">PRODUCT</span>
     <div class="product-chips" id="f-products">
       <div class="pchip active" data-product="Seater">Seater</div>
@@ -605,12 +609,14 @@ function currentFilters() {
   const from   = $('f-from').value;
   const to     = $('f-to').value;
   const line   = $('f-line').value.trim();
+  const depFrom = $('f-dep-from').value;
+  const depTo   = $('f-dep-to').value;
   const products = [...document.querySelectorAll('.pchip.active')].map(c => c.dataset.product);
   const f = {};
-  // relation (specific) overrides region
   if (from && to) f.relation = `${from} to ${to}`;
   else if (region) f.region = region;
   if (line) f.line_code = line;
+  if (depFrom && depTo) { f.dep_from = depFrom; f.dep_to = depTo; }
   if (products.length && products.length < 4) f.product_type = products.join(',');
   return f;
 }
@@ -634,6 +640,8 @@ function resetFilters() {
   $('f-region').value = '';
   onRegionChange();
   $('f-line').value = '';
+  $('f-dep-from').value = '';
+  $('f-dep-to').value = '';
   document.querySelectorAll('.pchip').forEach(c => c.classList.add('active'));
   applyFilters();
 }
