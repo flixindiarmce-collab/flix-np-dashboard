@@ -174,7 +174,8 @@ def _build_query(params: dict) -> tuple[str, dict]:
               ORDER BY scrape_timestamp DESC
             ) AS rn
           FROM `redbus-agent-490708.redbus.bus_inventory`
-          WHERE PARSE_DATE('%d-%b-%Y', departure_date)
+          WHERE scrape_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 DAY)
+            AND PARSE_DATE('%d-%b-%Y', departure_date)
                   BETWEEN DATE_ADD(CURRENT_DATE('Asia/Kolkata'), INTERVAL {pbd_lower} DAY)
                       AND DATE_ADD(CURRENT_DATE('Asia/Kolkata'), INTERVAL {pbd_upper} DAY)
             AND ({operator_filter})

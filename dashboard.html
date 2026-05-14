@@ -239,10 +239,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
                 <th data-sort="product">Type</th>
                 <th>Bus type</th>
                 <th data-sort="total_seats">Seats</th>
-                <th data-sort="load_pct">Load %</th>
                 <th data-sort="service_id">Service ID</th>
               </tr></thead>
-              <tbody><tr><td colspan="9" class="state-msg">Loading…</td></tr></tbody>
+              <tbody><tr><td colspan="8" class="state-msg">Loading…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -289,10 +288,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
                 <th data-sort="product">Type</th>
                 <th>Bus type</th>
                 <th data-sort="total_seats">Seats</th>
-                <th data-sort="load_pct">Load %</th>
                 <th data-sort="service_id">Service ID</th>
               </tr></thead>
-              <tbody><tr><td colspan="9" class="state-msg">Switch to this tab to load</td></tr></tbody>
+              <tbody><tr><td colspan="8" class="state-msg">Switch to this tab to load</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -761,7 +759,7 @@ function drawSchedule(tableId) {
     return st.sortDir === 'asc' ? cmp : -cmp;
   });
   if (!sorted.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="state-msg">No departures match the filter</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="state-msg">No departures match the filter</td></tr>';
     return;
   }
   tbody.innerHTML = sorted.map(r => {
@@ -777,7 +775,6 @@ function drawSchedule(tableId) {
       <td>${r.product}${volvoBadge}</td>
       <td style="color:var(--text3);font-size:10px">${(r.bus_type || '').slice(0, 36)}${acBadge}</td>
       <td>${r.total_seats != null ? r.total_seats : '—'}</td>
-      <td>${loadBar(r.load_pct)}</td>
       <td style="color:var(--text3);font-size:10px">${r.service_id || ''}</td>
     </tr>`;
   }).join('');
@@ -842,7 +839,7 @@ async function loadShortTab() {
   _shortLoaded = true;
   $('short-row-count').textContent = 'loading…';
   const r = await api('/api/np-departures' + filterQS({pbd_range:'d0-d4'}));
-  if (!r.ok) { console.error('np-departures error', r); $('short-row-count').textContent = 'error'; return; }
+  if (!r.ok) { console.error('np-departures error', r); $('short-row-count').textContent = 'error: ' + (r.error || 'unknown'); document.querySelector('#tbl-short tbody').innerHTML = `<tr><td colspan="8" class="state-msg">Error: ${r.error || 'request failed (likely timeout) — try narrowing the filter'}</td></tr>`; return; }
   const rows = r.rows || [];
   rollupKPIs(rows, 'short');
   renderSchedule('tbl-short', rows);
@@ -856,7 +853,7 @@ async function loadLongTab() {
   _longLoaded = true;
   $('long-row-count').textContent = 'loading…';
   const r = await api('/api/np-departures' + filterQS({pbd_range:'d5-d30'}));
-  if (!r.ok) { console.error('np-departures error', r); $('long-row-count').textContent = 'error'; return; }
+  if (!r.ok) { console.error('np-departures error', r); $('long-row-count').textContent = 'error: ' + (r.error || 'unknown'); document.querySelector('#tbl-long tbody').innerHTML = `<tr><td colspan="8" class="state-msg">Error: ${r.error || 'request failed (likely timeout) — try narrowing the filter'}</td></tr>`; return; }
   const rows = r.rows || [];
   rollupKPIs(rows, 'long');
   renderSchedule('tbl-long', rows);
