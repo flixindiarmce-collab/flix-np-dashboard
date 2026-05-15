@@ -51,8 +51,13 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 .pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--flix);margin-right:5px;animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
-.filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:9px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.filter-label{font-size:10px;font-family:var(--mono);color:var(--text3);font-weight:600;letter-spacing:.06em}
+.filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;flex-direction:column;gap:8px}
+.filter-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.filter-row .group{display:flex;align-items:center;gap:6px}
+.filter-row .spacer{flex:1}
+.filter-label{font-size:10px;font-family:var(--mono);color:var(--text3);font-weight:600;letter-spacing:.06em;text-transform:uppercase;min-width:38px}
+.filter-input,.filter-select{padding:5px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none;transition:border-color .15s}
+.filter-input:focus,.filter-select:focus{border-color:var(--flix);box-shadow:0 0 0 3px var(--flix-bg)}
 .filter-input,.filter-select{padding:5px 10px;border-radius:7px;border:1.5px solid var(--border);font-size:12px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none;transition:border-color .15s}
 .filter-input:focus,.filter-select:focus{border-color:var(--flix);box-shadow:0 0 0 3px var(--flix-bg)}
 .product-chips{display:flex;gap:4px}
@@ -180,33 +185,62 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
   </div>
 
   <div class="filter-bar" id="filter-bar">
-    <span class="filter-label">REGION</span>
-    <select class="filter-select" id="f-region" style="width:170px;font-family:var(--mono);font-size:11px">
-      <option value="">All India</option>
-    </select>
-    <span class="filter-label">FROM</span>
-    <select class="filter-select" id="f-from" style="width:140px;font-family:var(--mono);font-size:11px">
-      <option value="">All Cities</option>
-    </select>
-    <span class="filter-label">TO</span>
-    <select class="filter-select" id="f-to" style="width:140px;font-family:var(--mono);font-size:11px">
-      <option value="">All Destinations</option>
-    </select>
-    <span class="filter-label">LINE</span>
-    <input class="filter-input" id="f-line" placeholder="service id" style="width:110px;font-family:var(--mono);font-size:11px">
-    <span class="filter-label">DEP FROM</span>
-    <input class="filter-input" id="f-dep-from" type="date" style="width:140px;font-family:var(--mono);font-size:11px">
-    <span class="filter-label">DEP TO</span>
-    <input class="filter-input" id="f-dep-to" type="date" style="width:140px;font-family:var(--mono);font-size:11px">
-    <span class="filter-label">PRODUCT</span>
-    <div class="product-chips" id="f-products">
-      <div class="pchip active" data-product="Seater">Seater</div>
-      <div class="pchip active" data-product="Sleeper">Sleeper</div>
-      <div class="pchip active" data-product="Hybrid">Hybrid</div>
-      <div class="pchip active" data-product="Volvo">Volvo</div>
+
+    <!-- Row 1: WHERE — scope by region / corridor -->
+    <div class="filter-row">
+      <div class="group">
+        <span class="filter-label">Region</span>
+        <select class="filter-select" id="f-region" style="width:180px;font-family:var(--mono);font-size:11px">
+          <option value="">All India</option>
+        </select>
+      </div>
+      <div class="group">
+        <span class="filter-label">From</span>
+        <select class="filter-select" id="f-from" style="width:160px;font-family:var(--mono);font-size:11px">
+          <option value="">All Cities</option>
+        </select>
+      </div>
+      <div class="group">
+        <span class="filter-label">To</span>
+        <select class="filter-select" id="f-to" style="width:160px;font-family:var(--mono);font-size:11px">
+          <option value="">All Destinations</option>
+        </select>
+      </div>
     </div>
-    <button class="filter-reset" id="f-apply">Apply</button>
-    <button class="filter-reset" id="f-reset">↺ Reset</button>
+
+    <!-- Row 2: WHEN — date range -->
+    <div class="filter-row">
+      <div class="group">
+        <span class="filter-label">Dep From</span>
+        <input class="filter-input" id="f-dep-from" type="date" style="width:150px;font-family:var(--mono);font-size:11px">
+      </div>
+      <div class="group">
+        <span class="filter-label">Dep To</span>
+        <input class="filter-input" id="f-dep-to" type="date" style="width:150px;font-family:var(--mono);font-size:11px">
+      </div>
+      <div class="group">
+        <span class="filter-label">Line</span>
+        <input class="filter-input" id="f-line" placeholder="service id" style="width:140px;font-family:var(--mono);font-size:11px">
+      </div>
+      <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">Leave blank to use the tab default range</div>
+    </div>
+
+    <!-- Row 3: WHAT — product type + actions -->
+    <div class="filter-row">
+      <div class="group">
+        <span class="filter-label">Product</span>
+        <div class="product-chips" id="f-products">
+          <div class="pchip active" data-product="Seater">Seater</div>
+          <div class="pchip active" data-product="Sleeper">Sleeper</div>
+          <div class="pchip active" data-product="Hybrid">Hybrid</div>
+          <div class="pchip active" data-product="Volvo">Volvo</div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <button class="filter-reset" id="f-apply" style="font-weight:600;color:var(--flix);border-color:var(--flix-bdr);background:var(--flix-bg)">Apply</button>
+      <button class="filter-reset" id="f-reset">↺ Reset</button>
+    </div>
+
   </div>
 
   <div class="page">
