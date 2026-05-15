@@ -171,7 +171,18 @@ def _build_query(params: dict) -> tuple[str, dict]:
     extra_filter = " ".join(extra_filters)
 
     sql = f"""
-        WITH base AS (
+        WITH flix_lines AS (
+          -- service_id -> line_number map, learned from mini_crawl_latest where Flix line_numbers live.
+          -- service_id is stable across time, so this map applies to bus_inventory's D5-D30 rows too.
+          SELECT service_id, ANY_VALUE(line_number) AS line_number
+          FROM `redbus-agent-490708.redbus.mini_crawl_latest`
+          WHERE scrape_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+            AND LOWER(travels_name) LIKE '%flix%'
+            AND line_number IS NOT NULL
+            AND line_number != 'Not FlixBus'
+          GROUP BY service_id
+        ),
+        base AS (
           SELECT
             scrape_timestamp,
             relation_name,
@@ -197,32 +208,34 @@ def _build_query(params: dict) -> tuple[str, dict]:
             {extra_filter}
         )
         SELECT
-          relation_name,
-          departure_date,
-          departure_time,
-          service_id,
-          travels_name,
-          bus_type,
-          is_seater,
-          is_sleeper,
-          is_ac,
-          available_seats,
-          total_seats,
-          CASE WHEN LOWER(travels_name) LIKE '%flix%'                                            THEN 'flix'
-               WHEN LOWER(travels_name) LIKE '%intrcity%'                                        THEN 'intrcity'
-               WHEN LOWER(travels_name) LIKE '%zingbus%' AND LOWER(travels_name) NOT LIKE '%maxx%' THEN 'zingbus'
-               WHEN LOWER(travels_name) LIKE '%nuego%'                                           THEN 'nuego'
-               WHEN LOWER(travels_name) LIKE '%freshbus%'                                        THEN 'freshbus'
-               WHEN LOWER(travels_name) LIKE '%laxmi holidays%' AND LOWER(travels_name) NOT LIKE '%pvt%' THEN 'laxmi'
-               ELSE 'other' END                                                                    AS operator,
-          CASE WHEN departure_time IS NULL THEN 'unknown'
-               WHEN SAFE_CAST(SUBSTR(departure_time, 1, 2) AS INT64) BETWEEN 0  AND 5  THEN '00:00-05:59'
-               WHEN SAFE_CAST(SUBSTR(departure_time, 1, 2) AS INT64) BETWEEN 6  AND 11 THEN '06:00-11:59'
-               WHEN SAFE_CAST(SUBSTR(departure_time, 1, 2) AS INT64) BETWEEN 12 AND 17 THEN '12:00-17:59'
-               WHEN SAFE_CAST(SUBSTR(departure_time, 1, 2) AS INT64) BETWEEN 18 AND 23 THEN '18:00-23:59'
-               ELSE 'unknown' END                                                                  AS hour_band
+          base.relation_name,
+          base.departure_date,
+          base.departure_time,
+          base.service_id,
+          base.travels_name,
+          base.bus_type,
+          base.is_seater,
+          base.is_sleeper,
+          base.is_ac,
+          base.available_seats,
+          base.total_seats,
+          fl.line_number AS line_number,
+          CASE WHEN LOWER(base.travels_name) LIKE '%flix%'                                                   THEN 'flix'
+               WHEN LOWER(base.travels_name) LIKE '%intrcity%'                                               THEN 'intrcity'
+               WHEN LOWER(base.travels_name) LIKE '%zingbus%' AND LOWER(base.travels_name) NOT LIKE '%maxx%' THEN 'zingbus'
+               WHEN LOWER(base.travels_name) LIKE '%nuego%'                                                  THEN 'nuego'
+               WHEN LOWER(base.travels_name) LIKE '%freshbus%'                                               THEN 'freshbus'
+               WHEN LOWER(base.travels_name) LIKE '%laxmi holidays%' AND LOWER(base.travels_name) NOT LIKE '%pvt%' THEN 'laxmi'
+               ELSE 'other' END                                                                                AS operator,
+          CASE WHEN base.departure_time IS NULL THEN 'unknown'
+               WHEN SAFE_CAST(SUBSTR(base.departure_time, 1, 2) AS INT64) BETWEEN 0  AND 5  THEN '00:00-05:59'
+               WHEN SAFE_CAST(SUBSTR(base.departure_time, 1, 2) AS INT64) BETWEEN 6  AND 11 THEN '06:00-11:59'
+               WHEN SAFE_CAST(SUBSTR(base.departure_time, 1, 2) AS INT64) BETWEEN 12 AND 17 THEN '12:00-17:59'
+               WHEN SAFE_CAST(SUBSTR(base.departure_time, 1, 2) AS INT64) BETWEEN 18 AND 23 THEN '18:00-23:59'
+               ELSE 'unknown' END                                                                              AS hour_band
         FROM base
-        WHERE rn = 1
+        LEFT JOIN flix_lines fl USING (service_id)
+        WHERE base.rn = 1
     """
 
     applied = {
@@ -342,6 +355,7 @@ class handler(BaseHTTPRequestHandler):
                     "operator":       r["operator"],
                     "relation_name":  r["relation_name"],
                     "service_id":     r["service_id"],
+                    "line_number":    r.get("line_number"),
                     "bus_type":       r["bus_type"],
                     "product":        product,
                     "is_ac":          bool(r["is_ac"]) if r["is_ac"] is not None else None,

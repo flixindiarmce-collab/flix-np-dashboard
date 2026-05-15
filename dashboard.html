@@ -279,9 +279,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
                 <th data-sort="product">Type</th>
                 <th>Bus type</th>
                 <th data-sort="total_seats">Seats</th>
+                <th data-sort="line_number">Line</th>
                 <th data-sort="service_id">Service ID</th>
               </tr></thead>
-              <tbody><tr><td colspan="8" class="state-msg">Loading…</td></tr></tbody>
+              <tbody><tr><td colspan="9" class="state-msg">Loading…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -328,9 +329,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
                 <th data-sort="product">Type</th>
                 <th>Bus type</th>
                 <th data-sort="total_seats">Seats</th>
+                <th data-sort="line_number">Line</th>
                 <th data-sort="service_id">Service ID</th>
               </tr></thead>
-              <tbody><tr><td colspan="8" class="state-msg">Switch to this tab to load</td></tr></tbody>
+              <tbody><tr><td colspan="9" class="state-msg">Switch to this tab to load</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -479,6 +481,68 @@ const ROUTE_CORRIDOR = {
 };
 
 function getCorridor(rel) { return ROUTE_CORRIDOR[(rel||'').trim().toLowerCase()] || null; }
+
+// Flix line code → readable route name (copied from flix-price-alerts).
+// Tooltip hint when hovering a line code in the schedule table.
+const LINE_ATOB = {
+  'IN0110':'Delhi to Chandigarh','IN0120':'Gurugram to Amritsar',
+  'IN0120A':'Delhi to Amritsar','IN0120C':'Delhi to Amritsar','IN0120D':'Delhi to Amritsar',
+  'IN0121A':'Delhi to Katra','IN0210':'Delhi to Jibhi','IN0210A':'Delhi to Jibhi',
+  'IN0210C':'Delhi to Jibhi','IN0211':'Delhi to Dharamkot','IN0211B':'Delhi to Dharamkot',
+  'IN0212':'Delhi to Shimla','IN0212A':'Delhi to Shimla','IN0212B':'Gurugram to Shimla',
+  'IN0213':'Delhi to Kasol','IN0213A':'Delhi to Kasol','IN0214':'Delhi to Bir',
+  'IN0310':'Delhi to Dehradun','IN0310B':'Gurgaon to Mussoorie','IN0310C':'Delhi to Mussoorie',
+  'IN0310D':'Delhi to Mussoorie','IN0310E':'Gurugram to Mussoorie','IN0310F':'Delhi to Mussoorie',
+  'IN0320A':'Delhi to Nainital','IN0320C':'Gurgaon to Nainital','IN0320D':'Delhi to Nainital',
+  'IN0410':'Delhi to Bareilly','IN0410A':'Delhi to Bareilly',
+  'IN0421A':'Gurugram to Lucknow','IN0421B':'Delhi to Lucknow','IN0421C':'Gurugram to Lucknow',
+  'IN0423':'Delhi to Gorakhpur','IN0424':'Delhi to Azamgarh','IN0424A':'Delhi to Azamgarh',
+  'IN0426':'Delhi to Varanasi','IN0430A':'Delhi IGI Airport to Gr. Noida',
+  'IN0520':'Delhi to Indore','IN0520A':'Delhi to Indore',
+  'IN0610':'Delhi to Jaipur','IN0610A':'Delhi to Jaipur',
+  'IN0614':'Delhi to Udaipur','IN0614A':'Delhi to Udaipur','IN1011':'Jaipur to Dehradun',
+  'IN2310':'Mumbai to Ujjain','IN2310A':'Mumbai to Ujjain','IN2320':'Pune to Ujjain',
+  'IN2120':'Mumbai to Aurangabad','IN2510':'Hyderabad to Pune','IN2511':'Hyderabad to Pune',
+  'IN2530':'Hyderabad to Shirdi','IN2810':'Pune to Goa','IN2820A':'Mumbai to Goa',
+  'IN4108':'Bengaluru to Hyderabad','IN4110':'Bengaluru to Hyderabad',
+  'IN4111':'Bengaluru to Hyderabad','IN4112':'Bengaluru to Hyderabad',
+  'IN4115':'Bengaluru to Hyderabad','IN4118':'Bengaluru to Hyderabad',
+  'IN4210':'Bengaluru to Ongole','IN4220':'Bengaluru to Vijayawada',
+  'IN4221':'Bengaluru to Vijayawada','IN4222':'Bengaluru to Vijayawada',
+  'IN4230':'Bengaluru to Visakhapatnam',
+  'IN5310':'Hyderabad to Vijayawada','IN5320':'Hyderabad to Visakhapatnam',
+  'IN5322':'Hyderabad to Visakhapatnam','IN5323':'Hyderabad to Vizianagaram',
+  'IN5324':'Hyderabad to Visakhapatnam','IN5325':'Hyderabad to Visakhapatnam',
+  'IN5328':'Hyderabad to Kakinada','IN5335':'Hyderabad to Nellore',
+  'IN5336':'Hyderabad to Nellore','IN5340':'Hyderabad to Tirupati',
+  'IN5340A':'Hyderabad to Tirupati','IN5910':'Hyderabad to Goa',
+  'IN5210':'Chennai to Hyderabad','IN5211':'Chennai to Hyderabad',
+  'IN5212':'Chennai to Hyderabad','IN5213':'Chennai to Hyderabad',
+  'IN5214':'Chennai to Hyderabad','IN5215':'Chennai to Hyderabad',
+  'IN5216':'Chennai to Hyderabad','IN5220':'Chennai to Vijayawada',
+  'IN5221':'Chennai to Vijayawada','IN5230':'Chennai to Visakhapatnam',
+  'IN5270':'Hyderabad to Pondicherry','IN5410':'Vijayawada to Visakhapatnam',
+  'IN4309':'Bengaluru to Chennai','IN4310':'Bengaluru to Chennai',
+  'IN4311':'Bengaluru to Chennai','IN4312':'Bengaluru to Chennai',
+  'IN4313':'Bengaluru to Chennai','IN4314':'Bengaluru to Chennai',
+  'IN4316':'Bengaluru to Chennai','IN4317':'Bengaluru to Chennai',
+  'IN4318':'Bengaluru to Chennai','IN4319':'Bengaluru to Chennai',
+  'IN4320':'Bengaluru to Pondicherry','IN4332':'Bengaluru to Tirunelveli',
+  'IN4335':'Bengaluru to Velankanni','IN4340':'Bengaluru to Coimbatore',
+  'IN4341':'Bengaluru to Coimbatore','IN4352':'Bengaluru to Tiruchendur',
+  'IN4411':'Bengaluru to Kochi','IN4420':'Bengaluru to Alapuzzha',
+  'IN4430':'Bengaluru to Trivandrum','IN4450':'Bengaluru to Thiruvalla',
+  'IN5111':'Chennai to Rameswaram','IN5112':'Chennai to Udankudi',
+  'IN5113':'Chennai to Tiruchendur','IN5116':'Chennai to Cumbum',
+  'IN5129':'Chennai to Madurai','IN5130':'Chennai to Madurai','IN5131':'Chennai to Madurai',
+  'IN5136':'Chennai to Tirunelveli','IN5137':'Chennai to Nagercoil',
+  'IN5138':'Chennai to Nagercoil','IN5139':'Chennai to Nagercoil',
+  'IN5140':'Chennai to Coimbatore','IN5143':'Chennai to Coimbatore',
+  'IN5510':'Chennai to Kochi','IN5530':'Chennai to Nagercoil',
+  'IN5536':'Chennai to Munnar/Bodi','IN4520':'Bengaluru to Kundapura',
+  'IN4540':'Bengaluru to Belgaum','IN4580':'Bengaluru to Vijayapura',
+  'IN4610':'Bengaluru to Goa','IN4710':'Bengaluru to Pune',
+};
 
 const OP_COLORS = {
   flix:'#5bbf00', intrcity:'#3b82f6', zingbus:'#f59e0b',
@@ -816,7 +880,7 @@ function drawSchedule(tableId) {
     return st.sortDir === 'asc' ? cmp : -cmp;
   });
   if (!sorted.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="state-msg">No departures match the filter</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="state-msg">No departures match the filter</td></tr>';
     return;
   }
   tbody.innerHTML = sorted.map(r => {
@@ -832,6 +896,7 @@ function drawSchedule(tableId) {
       <td>${r.product}${volvoBadge}</td>
       <td style="color:var(--text3);font-size:10px">${(r.bus_type || '').slice(0, 36)}${acBadge}</td>
       <td>${r.total_seats != null ? r.total_seats : '—'}</td>
+      <td>${r.line_number ? `<span style="font-family:var(--mono);font-weight:600;color:var(--blue);cursor:help" title="${(LINE_ATOB[r.line_number]||'').replace(/"/g,'&quot;')}">${r.line_number}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
       <td style="color:var(--text3);font-size:10px">${r.service_id || ''}</td>
     </tr>`;
   }).join('');
@@ -859,7 +924,7 @@ function attachSortHandlers(tableId) {
 function exportCSV(tableId, filename) {
   const st = _tableState[tableId];
   if (!st || !st.rows.length) return;
-  const cols = ['departure_date','departure_time','operator','relation_name','product','bus_type','is_ac','is_volvo','total_seats','avail_seats','load_pct','service_id'];
+  const cols = ['departure_date','departure_time','operator','relation_name','line_number','service_id','product','bus_type','is_ac','is_volvo','total_seats','avail_seats'];
   const header = cols.join(',');
   const body = st.rows.map(r => cols.map(c => {
     const v = r[c];
@@ -896,7 +961,7 @@ async function loadShortTab() {
   _shortLoaded = true;
   $('short-row-count').textContent = 'loading…';
   const r = await api('/api/np-departures' + filterQS({pbd_range:'d0-d4'}));
-  if (!r.ok) { console.error('np-departures error', r); $('short-row-count').textContent = 'error: ' + (r.error || 'unknown'); document.querySelector('#tbl-short tbody').innerHTML = `<tr><td colspan="8" class="state-msg">Error: ${r.error || 'request failed (likely timeout) — try narrowing the filter'}</td></tr>`; return; }
+  if (!r.ok) { console.error('np-departures error', r); $('short-row-count').textContent = 'error: ' + (r.error || 'unknown'); document.querySelector('#tbl-short tbody').innerHTML = `<tr><td colspan="9" class="state-msg">Error: ${r.error || 'request failed (likely timeout) — try narrowing the filter'}</td></tr>`; return; }
   const rows = r.rows || [];
   rollupKPIs(rows, 'short');
   renderSchedule('tbl-short', rows);
@@ -912,7 +977,7 @@ async function loadLongTab() {
   _longLoaded = true;
   $('long-row-count').textContent = 'loading…';
   const r = await api('/api/np-departures' + filterQS({pbd_range:'d5-d30'}));
-  if (!r.ok) { console.error('np-departures error', r); $('long-row-count').textContent = 'error: ' + (r.error || 'unknown'); document.querySelector('#tbl-long tbody').innerHTML = `<tr><td colspan="8" class="state-msg">Error: ${r.error || 'request failed (likely timeout) — try narrowing the filter'}</td></tr>`; return; }
+  if (!r.ok) { console.error('np-departures error', r); $('long-row-count').textContent = 'error: ' + (r.error || 'unknown'); document.querySelector('#tbl-long tbody').innerHTML = `<tr><td colspan="9" class="state-msg">Error: ${r.error || 'request failed (likely timeout) — try narrowing the filter'}</td></tr>`; return; }
   const rows = r.rows || [];
   rollupKPIs(rows, 'long');
   renderSchedule('tbl-long', rows);
