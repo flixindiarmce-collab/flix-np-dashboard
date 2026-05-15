@@ -622,11 +622,16 @@ function setTabLoading(tab, isLoading) {
 async function api(path, opts={}) {
   progressBegin();
   try {
+    // Cache-bust: append a timestamp so every request is unique (defeats stale CDN entries)
+    const sep = path.includes('?') ? '&' : '?';
+    const url = `${path}${sep}_t=${Date.now()}`;
     const t = localStorage.getItem(TOKEN_KEY);
-    const res = await fetch(path, {
+    const res = await fetch(url, {
       ...opts,
+      cache: 'no-store',
       headers: {
         'Content-Type':'application/json',
+        'Cache-Control':'no-cache',
         ...(t ? {'Authorization':'Bearer ' + t} : {}),
         ...(opts.headers || {}),
       }
@@ -826,7 +831,7 @@ function resetFilters() {
 // ════════════════════════════════════════════════════════════════════════
 async function loadFreshness() {
   try {
-    const r = await fetch('/api/freshness').then(r => r.json());
+    const r = await fetch('/api/freshness?_t=' + Date.now(), {cache:'no-store'}).then(r => r.json());
     if (!r.ok) { $('freshness-text').textContent = 'crawl: unknown'; return; }
     $('freshness-text').textContent = `crawl: ${r.latest} IST · ${r.history_days}d history`;
     $('kpi-history-days') && ($('kpi-history-days').textContent = r.history_days + 'd');
@@ -843,7 +848,7 @@ async function loadFreshness() {
 
 async function loadRelations() {
   try {
-    const r = await fetch('/api/np-relations').then(r => r.json());
+    const r = await fetch('/api/np-relations?_t=' + Date.now(), {cache:'no-store'}).then(r => r.json());
     if (r.ok && r.relations) {
       _allRelations = r.relations;
       _cityMap = buildCityMap(r.relations);
