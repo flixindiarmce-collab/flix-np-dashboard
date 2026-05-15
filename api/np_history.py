@@ -96,9 +96,9 @@ def _region_to_relations(region: str) -> list[str]:
 PRODUCT_TYPES_ALL = {"Seater", "Sleeper", "Hybrid", "Volvo"}
 
 PRODUCT_TYPE_CLAUSES = {
-    "Seater":  "(is_seater = TRUE  AND is_sleeper = FALSE)",
-    "Sleeper": "(is_sleeper = TRUE AND is_seater = FALSE)",
-    "Hybrid":  "(is_seater = TRUE  AND is_sleeper = TRUE)",
+    "Seater":  "is_seater = TRUE",
+    "Sleeper": "is_sleeper = TRUE",
+    "Hybrid":  "(is_seater = FALSE AND is_sleeper = FALSE AND LOWER(bus_type) LIKE '%semi%')",
     "Volvo":   "LOWER(bus_type) LIKE '%volvo%'",
 }
 

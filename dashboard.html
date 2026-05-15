@@ -917,6 +917,13 @@ function renderByDayChart(canvasId, byDay) {
 // ── Per-bus schedule table ─────────────────────────────────────────────
 const _tableState = {}; // {tableId: {rows, sortKey, sortDir}}
 
+function prettyTime(t) {
+  if (!t) return '—';
+  // Match "HH:MM" from anywhere in the string — handles both "22:10:00" and "2026-05-15 22:10:00"
+  const m = String(t).match(/(\d{1,2}):(\d{2})/);
+  return m ? `${m[1].padStart(2,'0')}:${m[2]}` : t;
+}
+
 function loadBar(pct) {
   if (pct == null) return '<span style="color:var(--text3)">—</span>';
   const cls = pct >= 80 ? 'hot' : pct >= 50 ? 'warm' : '';
@@ -965,7 +972,7 @@ function drawSchedule(tableId) {
     const volvoBadge = r.is_volvo ? ' <span class="pchip-small" style="color:#5bbf00;border-color:#c5e89a;background:#f2fce8">Volvo</span>' : '';
     return `<tr class="op-${r.operator}">
       <td>${r.departure_date}</td>
-      <td><b style="color:var(--text)">${r.departure_time || '—'}</b></td>
+      <td><b style="color:var(--text)">${prettyTime(r.departure_time)}</b></td>
       <td><span class="op-badge" style="background:${opColor}">${opLabel}</span></td>
       <td class="route">${r.relation_name || ''}</td>
       <td>${r.product}${volvoBadge}</td>
