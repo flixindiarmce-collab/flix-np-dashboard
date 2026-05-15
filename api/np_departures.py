@@ -228,13 +228,14 @@ def _build_query(params: dict) -> tuple[str, dict]:
                WHEN LOWER(base.travels_name) LIKE '%freshbus%'                                               THEN 'freshbus'
                WHEN LOWER(base.travels_name) LIKE '%laxmi holidays%' AND LOWER(base.travels_name) NOT LIKE '%pvt%' THEN 'laxmi'
                ELSE 'other' END                                                                                AS operator,
-          -- REGEXP_EXTRACT handles both "22:10:00" and "2026-05-15 22:10:00" formats.
+          -- Robust hour extraction: STRPOS finds the first colon (HH:MM:SS or YYYY-MM-DD HH:MM:SS),
+          -- SUBSTR grabs the 2 chars before it. SAFE_CAST handles bad rows by returning NULL.
           CASE
-            WHEN base.departure_time IS NULL THEN 'unknown'
-            WHEN SAFE_CAST(REGEXP_EXTRACT(base.departure_time, r'(\\d{1,2}):\\d{2}') AS INT64) BETWEEN 0  AND 5  THEN '00:00-05:59'
-            WHEN SAFE_CAST(REGEXP_EXTRACT(base.departure_time, r'(\\d{1,2}):\\d{2}') AS INT64) BETWEEN 6  AND 11 THEN '06:00-11:59'
-            WHEN SAFE_CAST(REGEXP_EXTRACT(base.departure_time, r'(\\d{1,2}):\\d{2}') AS INT64) BETWEEN 12 AND 17 THEN '12:00-17:59'
-            WHEN SAFE_CAST(REGEXP_EXTRACT(base.departure_time, r'(\\d{1,2}):\\d{2}') AS INT64) BETWEEN 18 AND 23 THEN '18:00-23:59'
+            WHEN base.departure_time IS NULL OR STRPOS(base.departure_time, ':') < 3 THEN 'unknown'
+            WHEN SAFE_CAST(SUBSTR(base.departure_time, STRPOS(base.departure_time, ':') - 2, 2) AS INT64) BETWEEN 0  AND 5  THEN '00:00-05:59'
+            WHEN SAFE_CAST(SUBSTR(base.departure_time, STRPOS(base.departure_time, ':') - 2, 2) AS INT64) BETWEEN 6  AND 11 THEN '06:00-11:59'
+            WHEN SAFE_CAST(SUBSTR(base.departure_time, STRPOS(base.departure_time, ':') - 2, 2) AS INT64) BETWEEN 12 AND 17 THEN '12:00-17:59'
+            WHEN SAFE_CAST(SUBSTR(base.departure_time, STRPOS(base.departure_time, ':') - 2, 2) AS INT64) BETWEEN 18 AND 23 THEN '18:00-23:59'
             ELSE 'unknown'
           END AS hour_band
         FROM base
