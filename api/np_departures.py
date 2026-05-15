@@ -317,8 +317,8 @@ class handler(BaseHTTPRequestHandler):
             by_oh, by_day, by_line = _aggregate(rows)
 
             # Per-bus rows for the schedule table view (the NP-team primary view).
-            # Cap at 5000 to keep payload bounded; if user hits cap, they should filter further.
-            ROW_CAP = 5000
+            # Cap at 15K — practical Vercel response-size + browser DOM limit. Beyond this, filter.
+            ROW_CAP = 15000
             per_bus = []
             for r in rows[:ROW_CAP]:
                 if r["operator"] == "other":

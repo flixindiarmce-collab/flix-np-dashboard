@@ -853,8 +853,10 @@ async function loadShortTab() {
   renderSchedule('tbl-short', rows);
   renderHourBandChart('chart-hourband-short', r.by_operator_hourband || []);
   renderByDayChart('chart-byday-short', r.by_day || []);
-  const cap = r.row_count_raw >= (r.row_cap || 5000) ? ` · capped at ${r.row_cap}` : '';
-  $('short-row-count').textContent = `${rows.length.toLocaleString('en-IN')} rows${cap}`;
+  const capped = r.row_count_raw > rows.length;
+  $('short-row-count').textContent = capped
+    ? `showing ${rows.length.toLocaleString('en-IN')} of ${r.row_count_raw.toLocaleString('en-IN')} · narrow filter to see more`
+    : `${rows.length.toLocaleString('en-IN')} rows`;
 }
 
 async function loadLongTab() {
@@ -867,8 +869,10 @@ async function loadLongTab() {
   renderSchedule('tbl-long', rows);
   renderHourBandChart('chart-hourband-long', r.by_operator_hourband || []);
   renderByDayChart('chart-byday-long', r.by_day || []);
-  const cap = r.row_count_raw >= (r.row_cap || 5000) ? ` · capped at ${r.row_cap}` : '';
-  $('long-row-count').textContent = `${rows.length.toLocaleString('en-IN')} rows${cap}`;
+  const capped = r.row_count_raw > rows.length;
+  $('long-row-count').textContent = capped
+    ? `showing ${rows.length.toLocaleString('en-IN')} of ${r.row_count_raw.toLocaleString('en-IN')} · narrow filter to see more`
+    : `${rows.length.toLocaleString('en-IN')} rows`;
 }
 
 async function loadHistoryTab() {
