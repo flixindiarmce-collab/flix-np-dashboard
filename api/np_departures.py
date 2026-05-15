@@ -119,6 +119,15 @@ def _sql_string_escape(s: str) -> str:
     return s.replace("'", "''")
 
 
+def _safe_hour(v) -> int | None:
+    """Validate an hour-of-day query param. Returns int 0-23 or None."""
+    try:
+        h = int(v)
+        return h if 0 <= h <= 23 else None
+    except (TypeError, ValueError):
+        return None
+
+
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -169,6 +178,16 @@ def _build_query(params: dict) -> tuple[str, dict]:
             extra_filters.append(f"AND LOWER(relation_name) IN ({relation_list.lower()})")
     if params.get("line_code"):
         extra_filters.append(f"AND service_id = '{_sql_string_escape(params['line_code'])}'")
+
+    # Hour range filter — applied to the extracted departure hour
+    hr_from = _safe_hour(params.get("hr_from"))
+    hr_to   = _safe_hour(params.get("hr_to"))
+    if hr_from is not None and hr_to is not None:
+        extra_filters.append(
+            f"AND SAFE_CAST(SUBSTR(departure_time, STRPOS(departure_time, ':') - 2, 2) AS INT64) "
+            f"BETWEEN {hr_from} AND {hr_to}"
+        )
+
     extra_filter = " ".join(extra_filters)
 
     sql = f"""

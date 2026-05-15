@@ -270,10 +270,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
         <input class="filter-input" id="f-dep-to" type="date" style="width:150px;font-family:var(--mono);font-size:11px">
       </div>
       <div class="group">
+        <span class="filter-label">Hr From</span>
+        <input class="filter-input" id="f-hr-from" type="number" min="0" max="23" placeholder="0" style="width:70px;font-family:var(--mono);font-size:11px">
+      </div>
+      <div class="group">
+        <span class="filter-label">Hr To</span>
+        <input class="filter-input" id="f-hr-to" type="number" min="0" max="23" placeholder="23" style="width:70px;font-family:var(--mono);font-size:11px">
+      </div>
+      <div class="group">
         <span class="filter-label">Line</span>
         <input class="filter-input" id="f-line" placeholder="service id" style="width:140px;font-family:var(--mono);font-size:11px">
       </div>
-      <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">Leave blank to use the tab default range</div>
+      <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">Blank = full tab range</div>
     </div>
 
     <!-- Row 3: WHAT — product type -->
@@ -350,7 +358,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
                 <th>Bus type</th>
                 <th data-sort="total_seats">Seats</th>
                 <th data-sort="line_number">Line</th>
-                <th data-sort="service_id">Service ID</th>
+                <th data-sort="service_id">Line ID</th>
               </tr></thead>
               <tbody><tr><td colspan="9" class="state-msg">Loading…</td></tr></tbody>
             </table>
@@ -400,7 +408,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
                 <th>Bus type</th>
                 <th data-sort="total_seats">Seats</th>
                 <th data-sort="line_number">Line</th>
-                <th data-sort="service_id">Service ID</th>
+                <th data-sort="service_id">Line ID</th>
               </tr></thead>
               <tbody><tr><td colspan="9" class="state-msg">Switch to this tab to load</td></tr></tbody>
             </table>
@@ -839,6 +847,8 @@ function currentFilters() {
   const line   = $('f-line').value.trim();
   const depFrom = $('f-dep-from').value;
   const depTo   = $('f-dep-to').value;
+  const hrFrom  = $('f-hr-from').value;
+  const hrTo    = $('f-hr-to').value;
   const products = [...document.querySelectorAll('.pchip.active')].map(c => c.dataset.product);
   const operators = [...document.querySelectorAll('.ochip.active')].map(c => c.dataset.op);
   const f = {};
@@ -846,6 +856,7 @@ function currentFilters() {
   else if (region) f.region = region;
   if (line) f.line_code = line;
   if (depFrom && depTo) { f.dep_from = depFrom; f.dep_to = depTo; }
+  if (hrFrom !== '' && hrTo !== '') { f.hr_from = hrFrom; f.hr_to = hrTo; }
   if (products.length && products.length < 4) f.product_type = products.join(',');
   if (operators.length && operators.length < 6) f.operators = operators.join(',');
   return f;
@@ -872,6 +883,8 @@ function resetFilters() {
   $('f-line').value = '';
   $('f-dep-from').value = '';
   $('f-dep-to').value = '';
+  $('f-hr-from').value = '';
+  $('f-hr-to').value = '';
   document.querySelectorAll('.pchip').forEach(c => c.classList.add('active'));
   document.querySelectorAll('.ochip').forEach(c => c.classList.add('active'));
   applyFilters();
