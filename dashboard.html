@@ -79,6 +79,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 .tab-panel{display:none}
 .tab-panel.active{display:block}
 
+/* Top loading bar */
+.progress-bar{position:fixed;top:0;left:0;right:0;height:3px;background:transparent;z-index:200;pointer-events:none;overflow:hidden}
+.progress-bar.show::before{content:'';position:absolute;left:0;top:0;bottom:0;width:30%;background:linear-gradient(90deg,transparent,var(--flix),transparent);animation:slide 1.1s infinite}
+@keyframes slide{0%{left:-30%}100%{left:100%}}
+
+/* Per-tab loading state */
+.tab-panel.loading .kpi-value{color:var(--text3);animation:pulse 1.4s ease-in-out infinite}
+.tab-panel.loading .card{position:relative}
+.tab-panel.loading .card-body::after{content:'Loading…';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--text3);font-size:13px;font-family:var(--mono);background:var(--surface);padding:6px 14px;border-radius:8px;border:1px solid var(--border);z-index:5;animation:pulse 1.4s ease-in-out infinite}
+.tab-panel.loading .card-body{min-height:120px;position:relative}
+.tab-panel.loading .card-body > *:not(::after){opacity:.25;pointer-events:none}
+
 .fresh-banner{background:var(--amber-bg);border:1px solid var(--amber-bdr);border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);display:none}
 .fresh-banner.show{display:block}
 .fresh-banner b{color:var(--amber);font-weight:600}
@@ -170,6 +182,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
     <button id="login-btn">Sign in</button>
   </div>
 </div>
+
+<!-- Top loading bar (visible while any request is in flight) -->
+<div id="progress-bar" class="progress-bar"></div>
 
 <!-- ── APP ───────────────────────────────────────────────────────────────── -->
 <div id="app-view" style="display:none">
@@ -593,19 +608,33 @@ const _charts = {};
 let _shortLoaded = false, _longLoaded = false, _historyLoaded = false, _adminLoaded = false;
 
 // ════════════════════════════════════════════════════════════════════════
-// API HELPER
+// API HELPER + LOADING STATE
 // ════════════════════════════════════════════════════════════════════════
+let _inflight = 0;
+function progressBegin() { _inflight++; $('progress-bar').classList.add('show'); }
+function progressEnd()   { _inflight = Math.max(0, _inflight - 1); if (!_inflight) $('progress-bar').classList.remove('show'); }
+
+function setTabLoading(tab, isLoading) {
+  const panel = document.querySelector(`.tab-panel[data-panel="${tab}"]`);
+  if (panel) panel.classList.toggle('loading', !!isLoading);
+}
+
 async function api(path, opts={}) {
-  const t = localStorage.getItem(TOKEN_KEY);
-  const res = await fetch(path, {
-    ...opts,
-    headers: {
-      'Content-Type':'application/json',
-      ...(t ? {'Authorization':'Bearer ' + t} : {}),
-      ...(opts.headers || {}),
-    }
-  });
-  return res.json();
+  progressBegin();
+  try {
+    const t = localStorage.getItem(TOKEN_KEY);
+    const res = await fetch(path, {
+      ...opts,
+      headers: {
+        'Content-Type':'application/json',
+        ...(t ? {'Authorization':'Bearer ' + t} : {}),
+        ...(opts.headers || {}),
+      }
+    });
+    return await res.json();
+  } finally {
+    progressEnd();
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -1005,38 +1034,50 @@ function rollupKPIs(rows, suffix) {
 // ════════════════════════════════════════════════════════════════════════
 async function loadShortTab() {
   _shortLoaded = true;
+  setTabLoading('short', true);
   $('short-row-count').textContent = 'loading…';
-  const r = await api('/api/np-departures' + filterQS({pbd_range:'d0-d4'}));
-  if (!r.ok) { console.error('np-departures error', r); $('short-row-count').textContent = 'error: ' + (r.error || 'unknown'); document.querySelector('#tbl-short tbody').innerHTML = `<tr><td colspan="9" class="state-msg">Error: ${r.error || 'request failed (likely timeout) — try narrowing the filter'}</td></tr>`; return; }
-  const rows = r.rows || [];
-  rollupKPIs(rows, 'short');
-  renderSchedule('tbl-short', rows);
-  renderHourBandChart('chart-hourband-short', r.by_operator_hourband || []);
-  renderByDayChart('chart-byday-short', r.by_day || []);
-  const capped = r.row_count_raw > rows.length;
-  $('short-row-count').textContent = capped
-    ? `showing ${rows.length.toLocaleString('en-IN')} of ${r.row_count_raw.toLocaleString('en-IN')} · narrow filter to see more`
-    : `${rows.length.toLocaleString('en-IN')} rows`;
+  try {
+    const r = await api('/api/np-departures' + filterQS({pbd_range:'d0-d4'}));
+    if (!r.ok) { console.error('np-departures error', r); $('short-row-count').textContent = 'error: ' + (r.error || 'unknown'); document.querySelector('#tbl-short tbody').innerHTML = `<tr><td colspan="9" class="state-msg">Error: ${r.error || 'request failed (likely timeout) — try narrowing the filter'}</td></tr>`; return; }
+    const rows = r.rows || [];
+    rollupKPIs(rows, 'short');
+    renderSchedule('tbl-short', rows);
+    renderHourBandChart('chart-hourband-short', r.by_operator_hourband || []);
+    renderByDayChart('chart-byday-short', r.by_day || []);
+    const capped = r.row_count_raw > rows.length;
+    $('short-row-count').textContent = capped
+      ? `showing ${rows.length.toLocaleString('en-IN')} of ${r.row_count_raw.toLocaleString('en-IN')} · narrow filter to see more`
+      : `${rows.length.toLocaleString('en-IN')} rows`;
+  } finally {
+    setTabLoading('short', false);
+  }
 }
 
 async function loadLongTab() {
   _longLoaded = true;
+  setTabLoading('long', true);
   $('long-row-count').textContent = 'loading…';
-  const r = await api('/api/np-departures' + filterQS({pbd_range:'d5-d30'}));
-  if (!r.ok) { console.error('np-departures error', r); $('long-row-count').textContent = 'error: ' + (r.error || 'unknown'); document.querySelector('#tbl-long tbody').innerHTML = `<tr><td colspan="9" class="state-msg">Error: ${r.error || 'request failed (likely timeout) — try narrowing the filter'}</td></tr>`; return; }
-  const rows = r.rows || [];
-  rollupKPIs(rows, 'long');
-  renderSchedule('tbl-long', rows);
-  renderHourBandChart('chart-hourband-long', r.by_operator_hourband || []);
-  renderByDayChart('chart-byday-long', r.by_day || []);
-  const capped = r.row_count_raw > rows.length;
-  $('long-row-count').textContent = capped
-    ? `showing ${rows.length.toLocaleString('en-IN')} of ${r.row_count_raw.toLocaleString('en-IN')} · narrow filter to see more`
-    : `${rows.length.toLocaleString('en-IN')} rows`;
+  try {
+    const r = await api('/api/np-departures' + filterQS({pbd_range:'d5-d30'}));
+    if (!r.ok) { console.error('np-departures error', r); $('long-row-count').textContent = 'error: ' + (r.error || 'unknown'); document.querySelector('#tbl-long tbody').innerHTML = `<tr><td colspan="9" class="state-msg">Error: ${r.error || 'request failed (likely timeout) — try narrowing the filter'}</td></tr>`; return; }
+    const rows = r.rows || [];
+    rollupKPIs(rows, 'long');
+    renderSchedule('tbl-long', rows);
+    renderHourBandChart('chart-hourband-long', r.by_operator_hourband || []);
+    renderByDayChart('chart-byday-long', r.by_day || []);
+    const capped = r.row_count_raw > rows.length;
+    $('long-row-count').textContent = capped
+      ? `showing ${rows.length.toLocaleString('en-IN')} of ${r.row_count_raw.toLocaleString('en-IN')} · narrow filter to see more`
+      : `${rows.length.toLocaleString('en-IN')} rows`;
+  } finally {
+    setTabLoading('long', false);
+  }
 }
 
 async function loadHistoryTab() {
   _historyLoaded = true;
+  setTabLoading('history', true);
+  try {
   const [wow, trend] = await Promise.all([
     api('/api/np-history' + filterQS({view:'wow'})),
     api('/api/np-history' + filterQS({view:'trend_45'})),
@@ -1080,6 +1121,9 @@ async function loadHistoryTab() {
       }
     });
   }
+  } finally {
+    setTabLoading('history', false);
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -1087,6 +1131,7 @@ async function loadHistoryTab() {
 // ════════════════════════════════════════════════════════════════════════
 async function loadAdminTab() {
   _adminLoaded = true;
+  setTabLoading('admin', true);
   try {
     const s = await api('/api/admin?action=status');
     if (s.ok) {
@@ -1096,6 +1141,7 @@ async function loadAdminTab() {
     }
   } catch (_) {}
   await refreshUserTable();
+  setTabLoading('admin', false);
 }
 
 async function refreshUserTable() {
