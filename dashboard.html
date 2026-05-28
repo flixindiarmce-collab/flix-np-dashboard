@@ -436,8 +436,31 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
         <div class="kpi"><div class="kpi-label">History depth</div><div class="kpi-value" id="kpi-history-days">—</div></div>
       </div>
       <div class="card">
-        <div class="card-head"><div><div class="card-title">45-day trend</div><div class="card-sub">Departures per day × operator (latest scrape per bus)</div></div></div>
+        <div class="card-head"><div><div class="card-title">Daily trend</div><div class="card-sub" id="hist-trend-sub">Departures per day × operator · respects Filter From/To dates if set</div></div></div>
         <div class="card-body"><div class="chart-wrap" style="height:340px"><canvas id="chart-trend-45"></canvas></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">Operator share over time</div><div class="card-sub">% of total daily departures by operator</div></div></div>
+        <div class="card-body"><div class="chart-wrap" style="height:300px"><canvas id="chart-share"></canvas></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">Day-of-week pattern</div><div class="card-sub">Average daily departures per operator × DOW</div></div></div>
+        <div class="card-body"><div class="chart-wrap" style="height:300px"><canvas id="chart-dow"></canvas></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">Top 10 relations by volume</div><div class="card-sub">Total departures over the window · stacked by operator</div></div></div>
+        <div class="card-body"><div class="chart-wrap" style="height:360px"><canvas id="chart-toprel"></canvas></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">WoW gainers / losers by relation</div><div class="card-sub">% change last 7d vs prior 7d · always rolling vs today</div></div></div>
+        <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px">Top gainers</div><div class="chart-wrap" style="height:300px"><canvas id="chart-wow-gain"></canvas></div></div>
+          <div><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px">Top losers</div><div class="chart-wrap" style="height:300px"><canvas id="chart-wow-loss"></canvas></div></div>
+        </div>
       </div>
     </div>
 
@@ -1154,11 +1177,16 @@ async function loadHistoryTab() {
   _historyLoaded = true;
   setTabLoading('history', true);
   try {
-  const [wow, trend] = await Promise.all([
+  const [wow, trend, share, dow, top, wowRel] = await Promise.all([
     api('/api/np-history' + filterQS({view:'wow'})),
     api('/api/np-history' + filterQS({view:'trend_45'})),
+    api('/api/np-history' + filterQS({view:'share'})),
+    api('/api/np-history' + filterQS({view:'dow'})),
+    api('/api/np-history' + filterQS({view:'top_relations'})),
+    api('/api/np-history' + filterQS({view:'wow_relation'})),
   ]);
-  // WoW KPIs
+
+  // ── WoW KPIs ────────────────────────────────────────────────────────
   if (wow.ok && wow.delta) {
     const fmtDelta = (op) => {
       const d = wow.delta[op];
@@ -1170,36 +1198,169 @@ async function loadHistoryTab() {
     $('kpi-wow-intr').textContent = fmtDelta('intrcity');
     $('kpi-wow-zing').textContent = fmtDelta('zingbus');
   }
-  // 45-day trend
-  if (trend.ok && trend.points) {
-    const points = trend.points;
-    const dates = [...new Set(points.map(p => p.departure_date))].sort();
-    const operators = [...new Set(points.map(p => p.operator))].sort();
-    destroyChart('chart-trend-45');
-    const datasets = operators.map(op => ({
-      label: OP_LABELS[op] || op,
-      borderColor: OP_COLORS[op] || '#888',
-      backgroundColor: OP_COLORS[op] || '#888',
-      fill: false, tension: 0.2, pointRadius: 2,
-      data: dates.map(d => {
-        const row = points.find(p => p.departure_date === d && p.operator === op);
-        return row ? row.departure_count : 0;
-      }),
-    }));
-    const ctx = $('chart-trend-45').getContext('2d');
-    _charts['chart-trend-45'] = new Chart(ctx, {
-      type: 'line',
-      data: { labels: dates, datasets },
-      options: {
-        responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{ position:'bottom', labels:{boxWidth:10,font:{size:11}} } },
-        scales:{ x:{ ticks:{font:{size:9},maxRotation:90,minRotation:60} }, y:{ beginAtZero:true } }
-      }
-    });
-  }
+
+  // Reflect dep_from/dep_to in the subtitle if a custom window is in play.
+  const f = currentFilters();
+  const windowLabel = (f.dep_from && f.dep_to) ? `${f.dep_from} → ${f.dep_to}` : 'rolling 45d';
+  $('hist-trend-sub').textContent = `Departures per day × operator · ${windowLabel}`;
+
+  // ── Daily trend (line) ──────────────────────────────────────────────
+  renderTrendLine(trend);
+  // ── Operator share (stacked area) ───────────────────────────────────
+  renderShareStack(share);
+  // ── DOW pattern (grouped bar) ───────────────────────────────────────
+  renderDowBars(dow);
+  // ── Top relations (horizontal stacked bar) ──────────────────────────
+  renderTopRelations(top);
+  // ── WoW gainers/losers (two horizontal bars) ────────────────────────
+  renderWowMovers(wowRel);
   } finally {
     setTabLoading('history', false);
   }
+}
+
+function renderTrendLine(trend) {
+  if (!trend.ok || !trend.points) return;
+  const points = trend.points;
+  const dates = [...new Set(points.map(p => p.departure_date))].sort();
+  const operators = [...new Set(points.map(p => p.operator))].sort((a,b) => (OP_SORT_ORDER[a]??99) - (OP_SORT_ORDER[b]??99));
+  destroyChart('chart-trend-45');
+  const datasets = operators.map(op => ({
+    label: OP_LABELS[op] || op,
+    borderColor: OP_COLORS[op] || '#888',
+    backgroundColor: OP_COLORS[op] || '#888',
+    fill:false, tension:0.2, pointRadius:2,
+    data: dates.map(d => {
+      const row = points.find(p => p.departure_date === d && p.operator === op);
+      return row ? row.departure_count : 0;
+    }),
+  }));
+  const ctx = $('chart-trend-45').getContext('2d');
+  _charts['chart-trend-45'] = new Chart(ctx, {
+    type:'line',
+    data:{labels:dates, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom', labels:{boxWidth:10,font:{size:11}}}},
+      scales:{x:{ticks:{font:{size:9},maxRotation:90,minRotation:60}}, y:{beginAtZero:true}}
+    }
+  });
+}
+
+function renderShareStack(share) {
+  if (!share.ok || !share.points || !share.points.length) return;
+  const dates = [...new Set(share.points.map(p => p.departure_date))].sort();
+  const operators = [...new Set(share.points.map(p => p.operator))].sort((a,b) => (OP_SORT_ORDER[a]??99) - (OP_SORT_ORDER[b]??99));
+  destroyChart('chart-share');
+  const datasets = operators.map(op => ({
+    label: OP_LABELS[op] || op,
+    backgroundColor: OP_COLORS[op] || '#888',
+    borderColor: OP_COLORS[op] || '#888',
+    borderWidth: 0,
+    data: dates.map(d => {
+      const row = share.points.find(p => p.departure_date === d && p.operator === op);
+      return row ? row.share_pct : 0;
+    }),
+  }));
+  const ctx = $('chart-share').getContext('2d');
+  _charts['chart-share'] = new Chart(ctx, {
+    type:'bar',
+    data:{labels:dates, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom', labels:{boxWidth:10,font:{size:11}}},
+        tooltip:{callbacks:{label:(c)=>`${c.dataset.label}: ${c.parsed.y}%`}}
+      },
+      scales:{
+        x:{stacked:true, ticks:{font:{size:9},maxRotation:90,minRotation:60}},
+        y:{stacked:true, beginAtZero:true, max:100, ticks:{callback:(v)=>v+'%'}}
+      }
+    }
+  });
+}
+
+function renderDowBars(dow) {
+  if (!dow.ok || !dow.points || !dow.points.length) return;
+  const labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const operators = [...new Set(dow.points.map(p => p.operator))].sort((a,b) => (OP_SORT_ORDER[a]??99) - (OP_SORT_ORDER[b]??99));
+  destroyChart('chart-dow');
+  const datasets = operators.map(op => ({
+    label: OP_LABELS[op] || op,
+    backgroundColor: OP_COLORS[op] || '#888',
+    data: labels.map((_, dowIdx) => {
+      const row = dow.points.find(p => p.operator === op && p.dow === dowIdx);
+      return row ? row.avg : 0;
+    }),
+  }));
+  const ctx = $('chart-dow').getContext('2d');
+  _charts['chart-dow'] = new Chart(ctx, {
+    type:'bar',
+    data:{labels, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom', labels:{boxWidth:10,font:{size:11}}}},
+      scales:{x:{ticks:{font:{size:11}}}, y:{beginAtZero:true, title:{display:true,text:'Avg daily departures',font:{size:11}}}}
+    }
+  });
+}
+
+function renderTopRelations(top) {
+  if (!top.ok || !top.rows || !top.rows.length) return;
+  const labels = top.rows.map(r => r.relation);
+  const operators = [...new Set(top.rows.flatMap(r => Object.keys(r.by_operator)))].sort((a,b) => (OP_SORT_ORDER[a]??99) - (OP_SORT_ORDER[b]??99));
+  destroyChart('chart-toprel');
+  const datasets = operators.map(op => ({
+    label: OP_LABELS[op] || op,
+    backgroundColor: OP_COLORS[op] || '#888',
+    data: top.rows.map(r => r.by_operator[op] || 0),
+  }));
+  const ctx = $('chart-toprel').getContext('2d');
+  _charts['chart-toprel'] = new Chart(ctx, {
+    type:'bar',
+    data:{labels, datasets},
+    options:{
+      indexAxis:'y',
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom', labels:{boxWidth:10,font:{size:11}}}},
+      scales:{
+        x:{stacked:true, beginAtZero:true, title:{display:true,text:'Total departures',font:{size:11}}},
+        y:{stacked:true, ticks:{font:{size:10}}}
+      }
+    }
+  });
+}
+
+function renderWowMovers(wow) {
+  if (!wow.ok) return;
+  const renderHalf = (canvasId, rows, color) => {
+    destroyChart(canvasId);
+    if (!rows || !rows.length) return;
+    const labels = rows.map(r => r.relation);
+    const data   = rows.map(r => r.pct_delta);
+    const ctx = $(canvasId).getContext('2d');
+    _charts[canvasId] = new Chart(ctx, {
+      type:'bar',
+      data:{labels, datasets:[{label:'% Δ', backgroundColor:color, data}]},
+      options:{
+        indexAxis:'y',
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{label:(c)=>{
+            const r = rows[c.dataIndex];
+            return ` ${r.current} vs ${r.prior} (${r.pct_delta>0?'+':''}${r.pct_delta}%)`;
+          }}}
+        },
+        scales:{
+          x:{ticks:{callback:(v)=>v+'%',font:{size:10}}},
+          y:{ticks:{font:{size:10}}}
+        }
+      }
+    });
+  };
+  renderHalf('chart-wow-gain', wow.gainers || [], 'rgba(34, 197, 94, 0.85)');
+  renderHalf('chart-wow-loss', wow.losers  || [], 'rgba(239, 68, 68, 0.85)');
 }
 
 // ════════════════════════════════════════════════════════════════════════
