@@ -15,7 +15,9 @@ Logic:
   This makes the metric resilient to the 2026-04-01 crawl-volume regime change
   (we always count distinct buses, never raw rows).
 
-  Excludes partial-crawl scrape_dates (n < 150K rows OR forward span < 29 days).
+  Excludes partial-crawl scrape_dates (n < 50K rows). Forward-span gate
+  removed — History looks at past departures, future inventory horizon
+  doesn't matter.
 
 Views:
   - wow:       this week (last 7 days) vs prior week, by operator
@@ -102,8 +104,7 @@ PRODUCT_TYPE_CLAUSES = {
     "Volvo":   "LOWER(bus_type) LIKE '%volvo%'",
 }
 
-MIN_ROWS_PER_DAY = 150_000
-MIN_FORWARD_DAYS = 29
+MIN_ROWS_PER_DAY = 50_000
 
 
 def _bq_client():
@@ -165,21 +166,16 @@ def _build_trend_sql(history_days: int, op_filter: str, prod_filter: str, extra_
     """
     return f"""
         WITH clean_days AS (
-          SELECT scrape_date
-          FROM (
-            SELECT
-              DATE(scrape_timestamp, 'Asia/Kolkata') AS scrape_date,
-              COUNT(*)                               AS n,
-              DATE_DIFF(
-                MAX(PARSE_DATE('%d-%b-%Y', departure_date)),
-                MIN(PARSE_DATE('%d-%b-%Y', departure_date)),
-                DAY
-              )                                      AS forward_span
-            FROM `redbus-agent-490708.redbus.bus_inventory`
-            WHERE scrape_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL ({history_days} + 15) DAY)
-            GROUP BY scrape_date
-          )
-          WHERE n >= {MIN_ROWS_PER_DAY} AND forward_span >= {MIN_FORWARD_DAYS}
+          -- History looks BACKWARD at past departure_dates, so forward_span
+          -- (how far ahead a crawl saw inventory) doesn't matter — we only
+          -- need the crawl to have pulled enough rows to be considered a
+          -- real crawl. Threshold lowered post-2026-04-01 regime change.
+          SELECT
+            DATE(scrape_timestamp, 'Asia/Kolkata') AS scrape_date
+          FROM `redbus-agent-490708.redbus.bus_inventory`
+          WHERE scrape_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL ({history_days} + 15) DAY)
+          GROUP BY scrape_date
+          HAVING COUNT(*) >= {MIN_ROWS_PER_DAY}
         ),
         base AS (
           SELECT
@@ -202,14 +198,21 @@ def _build_trend_sql(history_days: int, op_filter: str, prod_filter: str, extra_
                       AND DATE_SUB(CURRENT_DATE('Asia/Kolkata'), INTERVAL 1 DAY)
         ),
         dedup AS (
+          -- Identity = (relation, date, service_id). departure_time is NOT
+          -- part of the partition: with multiple daily crawls the same
+          -- service_id can return with a slightly drifted departure_time,
+          -- and including it splits one bus into many "latest" rows. Latest
+          -- scrape per service_id wins.
           SELECT * FROM (
             SELECT
               *,
               ROW_NUMBER() OVER (
-                PARTITION BY relation_name, departure_date, service_id, departure_time
+                PARTITION BY relation_name, departure_date, service_id
                 ORDER BY scrape_timestamp DESC
               ) AS rn
             FROM base
+            WHERE service_id IS NOT NULL AND service_id != ''
+              AND relation_name IS NOT NULL
           )
           WHERE rn = 1
         )

@@ -25,8 +25,7 @@ SCOPES  = [
     "https://www.googleapis.com/auth/cloud-platform",
 ]
 
-MIN_ROWS_PER_DAY = 150_000
-MIN_FORWARD_DAYS = 29
+MIN_ROWS_PER_DAY = 50_000
 
 
 class handler(BaseHTTPRequestHandler):
@@ -50,12 +49,7 @@ class handler(BaseHTTPRequestHandler):
             daily_sql = f"""
                 SELECT
                   DATE(scrape_timestamp, 'Asia/Kolkata') AS scrape_date,
-                  COUNT(*) AS n,
-                  DATE_DIFF(
-                    MAX(PARSE_DATE('%d-%b-%Y', departure_date)),
-                    MIN(PARSE_DATE('%d-%b-%Y', departure_date)),
-                    DAY
-                  ) AS forward_span
+                  COUNT(*) AS n
                 FROM `redbus-agent-490708.redbus.bus_inventory`
                 WHERE scrape_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 60 DAY)
                 GROUP BY scrape_date
@@ -69,16 +63,11 @@ class handler(BaseHTTPRequestHandler):
 
             clean, excluded = 0, []
             for row in q_daily.result():
-                bad_count   = row.n < MIN_ROWS_PER_DAY
-                bad_forward = (row.forward_span or 0) < MIN_FORWARD_DAYS
-                if bad_count or bad_forward:
-                    reasons = []
-                    if bad_count:   reasons.append(f"only {row.n:,} rows")
-                    if bad_forward: reasons.append(f"{row.forward_span}-day forward window")
+                if row.n < MIN_ROWS_PER_DAY:
                     excluded.append({
                         "date":   row.scrape_date.isoformat(),
                         "rows":   row.n,
-                        "reason": "; ".join(reasons),
+                        "reason": f"only {row.n:,} rows",
                     })
                 else:
                     clean += 1
