@@ -11,13 +11,15 @@ Query params:
   operators     Comma-separated              optional
 
 Logic:
-  For each historical departure_date, pick the LATEST scrape_timestamp.
-  This makes the metric resilient to the 2026-04-01 crawl-volume regime change
-  (we always count distinct buses, never raw rows).
+  For each historical departure_date, count DISTINCT service_id across
+  ALL scrapes that ever sighted it (UNION semantics). bus_inventory is
+  an SRP archive — services drop off scrapes once they sell out, so any
+  single scrape under-counts what actually ran. UNION across all scrapes
+  in the window gives the real run count.
 
-  Excludes partial-crawl scrape_dates (n < 50K rows). Forward-span gate
-  removed — History looks at past departures, future inventory horizon
-  doesn't matter.
+  No partial-crawl filtering: every scrape, even a small one, strictly
+  ADDS signal to the UNION (it can only confirm "this service existed
+  on this date", never disprove it).
 
 Views:
   - wow:       this week (last 7 days) vs prior week, by operator
@@ -104,9 +106,6 @@ PRODUCT_TYPE_CLAUSES = {
     "Volvo":   "LOWER(bus_type) LIKE '%volvo%'",
 }
 
-MIN_ROWS_PER_DAY = 50_000
-
-
 def _bq_client():
     sa_info = json.loads(os.environ["SA_CREDENTIALS_JSON"])
     creds   = service_account.Credentials.from_service_account_info(sa_info, scopes=SCOPES)
@@ -165,19 +164,15 @@ def _build_trend_sql(history_days: int, op_filter: str, prod_filter: str, extra_
     the count vs head-of-NP's reference.)
     """
     return f"""
-        WITH clean_days AS (
-          -- History looks BACKWARD at past departure_dates, so forward_span
-          -- (how far ahead a crawl saw inventory) doesn't matter — we only
-          -- need the crawl to have pulled enough rows to be considered a
-          -- real crawl. Threshold lowered post-2026-04-01 regime change.
-          SELECT
-            DATE(scrape_timestamp, 'Asia/Kolkata') AS scrape_date
-          FROM `redbus-agent-490708.redbus.bus_inventory`
-          WHERE scrape_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL ({history_days} + 15) DAY)
-          GROUP BY scrape_date
-          HAVING COUNT(*) >= {MIN_ROWS_PER_DAY}
-        ),
-        base AS (
+        -- bus_inventory is an SRP scrape archive. A service appears in this
+        -- table only if a crawl listed it on the SRP. Once a bus sells out
+        -- it drops off later scrapes. To answer "how many services ran on
+        -- this date?" we UNION all scrapes that ever sighted the service —
+        -- a service counts as long as ANY crawl saw it. Each per-scrape
+        -- crawl strictly ADDS signal, so we deliberately don't gate on
+        -- partial-crawl day thresholds here (a 40K-row scrape still tells
+        -- us "this service existed on this date").
+        WITH base AS (
           SELECT
             scrape_timestamp,
             relation_name,
@@ -189,7 +184,7 @@ def _build_trend_sql(history_days: int, op_filter: str, prod_filter: str, extra_
             is_seater,
             is_sleeper
           FROM `redbus-agent-490708.redbus.bus_inventory`
-          WHERE DATE(scrape_timestamp, 'Asia/Kolkata') IN (SELECT scrape_date FROM clean_days)
+          WHERE scrape_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL ({history_days} + 15) DAY)
             AND ({op_filter})
             {prod_filter}
             {extra_filter}
