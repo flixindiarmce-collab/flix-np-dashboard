@@ -155,7 +155,14 @@ def _build_filter_clauses(params: dict) -> tuple[str, dict]:
 
 
 def _build_trend_sql(history_days: int, op_filter: str, prod_filter: str, extra_filter: str) -> str:
-    """Daily departure counts per operator across past N days, using latest-scrape-per-bus dedupe."""
+    """Daily departure counts per operator across past N days.
+
+    departure_count = COUNT(DISTINCT service_id) per operator on that date.
+    A single service running multiple departure_time slots on the same day
+    counts as ONE departure — same row of inventory under different
+    schedules. (Counting each (service_id × departure_time) was inflating
+    the count vs head-of-NP's reference.)
+    """
     return f"""
         WITH clean_days AS (
           SELECT scrape_date
@@ -215,7 +222,7 @@ def _build_trend_sql(history_days: int, op_filter: str, prod_filter: str, extra_
                WHEN LOWER(travels_name) LIKE '%freshbus%'                                        THEN 'freshbus'
                WHEN LOWER(travels_name) LIKE '%laxmi holidays%' AND LOWER(travels_name) NOT LIKE '%pvt%' THEN 'laxmi'
                ELSE 'other' END                                                                    AS operator,
-          COUNT(*) AS departure_count
+          COUNT(DISTINCT service_id) AS departure_count
         FROM dedup
         GROUP BY departure_date, operator
         ORDER BY departure_date, operator
