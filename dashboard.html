@@ -95,7 +95,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 .fresh-banner.show{display:block}
 .fresh-banner b{color:var(--amber);font-weight:600}
 
-.kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
 .kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,var(--flix))}
 .kpi-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;font-family:var(--mono)}
@@ -138,6 +138,19 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 .load-bar i.hot{background:var(--red)}
 .load-bar i.warm{background:var(--amber)}
 .pchip-small{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.util-bucket{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:600;font-family:var(--mono)}
+.util-bucket.b0{background:#f3f4f6;color:#6b7280}
+.util-bucket.b25{background:var(--blue-bg);color:var(--blue)}
+.util-bucket.b50{background:var(--amber-bg);color:var(--amber)}
+.util-bucket.b75{background:var(--red-bg);color:var(--red)}
+.tbl tr.sched-row{cursor:pointer}
+.tbl tr.sched-row.open td:first-child{box-shadow:inset 3px 0 0 var(--blue)!important}
+.drill-panel{background:var(--blue-bg);border-top:2px solid var(--blue);padding:14px 16px}
+.drill-title{font-size:12px;font-weight:600;color:var(--blue);margin-bottom:10px}
+.drill-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;font-size:12px;font-family:var(--font)}
+.drill-grid > div{min-width:0}
+.drill-grid .lbl{color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono)}
+.drill-grid .val{font-weight:600;color:var(--text);margin-top:2px;font-size:13px}
 
 /* Admin */
 .admin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
@@ -334,8 +347,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
         <div class="kpi"><div class="kpi-label">Flix</div><div class="kpi-value" id="kpi-flix-short">—</div></div>
         <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Competitors (combined)</div><div class="kpi-value" id="kpi-comp-short">—</div></div>
         <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Flix share</div><div class="kpi-value" id="kpi-share-short">—</div></div>
-        <div class="kpi"><div class="kpi-label">Flix util %</div><div class="kpi-value" id="kpi-util-flix-short">—</div></div>
-        <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Comp util %</div><div class="kpi-value" id="kpi-util-comp-short">—</div></div>
       </div>
       <div class="card">
         <div class="card-head">
@@ -359,10 +370,12 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
                 <th data-sort="product">Type</th>
                 <th>Bus type</th>
                 <th data-sort="total_seats">Seats</th>
+                <th data-sort="load_pct">Load</th>
+                <th data-sort="util_bucket_order">Util bucket</th>
                 <th data-sort="line_number">Line</th>
                 <th data-sort="service_id">Line ID</th>
               </tr></thead>
-              <tbody><tr><td colspan="9" class="state-msg">Loading…</td></tr></tbody>
+              <tbody><tr><td colspan="11" class="state-msg">Loading…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -386,8 +399,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
         <div class="kpi"><div class="kpi-label">Flix</div><div class="kpi-value" id="kpi-flix-long">—</div></div>
         <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Competitors (combined)</div><div class="kpi-value" id="kpi-comp-long">—</div></div>
         <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Flix share</div><div class="kpi-value" id="kpi-share-long">—</div></div>
-        <div class="kpi"><div class="kpi-label">Flix util %</div><div class="kpi-value" id="kpi-util-flix-long">—</div></div>
-        <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Comp util %</div><div class="kpi-value" id="kpi-util-comp-long">—</div></div>
       </div>
       <div class="card">
         <div class="card-head">
@@ -411,10 +422,12 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
                 <th data-sort="product">Type</th>
                 <th>Bus type</th>
                 <th data-sort="total_seats">Seats</th>
+                <th data-sort="load_pct">Load</th>
+                <th data-sort="util_bucket_order">Util bucket</th>
                 <th data-sort="line_number">Line</th>
                 <th data-sort="service_id">Line ID</th>
               </tr></thead>
-              <tbody><tr><td colspan="9" class="state-msg">Switch to this tab to load</td></tr></tbody>
+              <tbody><tr><td colspan="11" class="state-msg">Switch to this tab to load</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1031,7 +1044,26 @@ function loadBar(pct) {
   return `<span class="load-bar"><i class="${cls}" style="width:${Math.min(100,pct)}%"></i></span>${pct.toFixed(0)}%`;
 }
 
+// 25-pt utilisation buckets, mirroring price-alerts. Stored on the row as
+// util_bucket (label) + util_bucket_order (numeric, for sorting).
+function utilBucket(pct) {
+  if (pct == null) return { label: null, order: -1, cls: 'b0' };
+  if (pct >= 76)   return { label: '76-100%', order: 4, cls: 'b75' };
+  if (pct >= 51)   return { label: '51-75%',  order: 3, cls: 'b50' };
+  if (pct >= 26)   return { label: '26-50%',  order: 2, cls: 'b25' };
+  return                  { label: '0-25%',   order: 1, cls: 'b0'  };
+}
+
 function renderSchedule(tableId, rows) {
+  // Pre-compute load_pct + util_bucket per row so they can be sorted on.
+  rows.forEach(r => {
+    if (r.load_pct == null && r.total_seats && r.avail_seats != null) {
+      r.load_pct = +(((1 - r.avail_seats / r.total_seats) * 100).toFixed(1));
+    }
+    const ub = utilBucket(r.load_pct);
+    r.util_bucket = ub.label;
+    r.util_bucket_order = ub.order;
+  });
   _tableState[tableId] = _tableState[tableId] || { rows: [], sortKey: 'departure_time', sortDir: 'asc' };
   _tableState[tableId].rows = rows;
   drawSchedule(tableId);
@@ -1063,15 +1095,20 @@ function drawSchedule(tableId) {
     return st.sortDir === 'asc' ? cmp : -cmp;
   });
   if (!sorted.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="state-msg">No departures match the filter</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="state-msg">No departures match the filter</td></tr>';
     return;
   }
-  tbody.innerHTML = sorted.map(r => {
+  tbody.innerHTML = sorted.map((r, i) => {
     const opColor = OP_COLORS[r.operator] || '#888';
     const opLabel = OP_LABELS[r.operator] || r.operator;
     const acBadge = r.is_ac === true  ? ' AC' : r.is_ac === false ? ' Non-AC' : '';
     const volvoBadge = r.is_volvo ? ' <span class="pchip-small" style="color:#5bbf00;border-color:#c5e89a;background:#f2fce8">Volvo</span>' : '';
-    return `<tr class="op-${r.operator}">
+    const ub = utilBucket(r.load_pct);
+    const utilCell = ub.label
+      ? `<span class="util-bucket ${ub.cls}">${ub.label}</span>`
+      : '<span style="color:var(--text3)">—</span>';
+    const drillId = `${tableId}-drill-${i}`;
+    return `<tr class="sched-row op-${r.operator}" data-drill-target="${drillId}" onclick="toggleSchedDrill('${drillId}', this)">
       <td>${r.departure_date}</td>
       <td><b style="color:var(--text)">${prettyTime(r.departure_time)}</b></td>
       <td><span class="op-badge" style="background:${opColor}">${opLabel}</span></td>
@@ -1079,9 +1116,12 @@ function drawSchedule(tableId) {
       <td>${r.product}${volvoBadge}</td>
       <td style="color:var(--text3);font-size:10px">${(r.bus_type || '').slice(0, 36)}${acBadge}</td>
       <td>${r.total_seats != null ? r.total_seats : '—'}</td>
+      <td>${loadBar(r.load_pct)}</td>
+      <td>${utilCell}</td>
       <td>${r.line_number ? `<span style="font-family:var(--mono);font-weight:600;color:var(--blue);cursor:help" title="${(LINE_ATOB[r.line_number]||'').replace(/"/g,'&quot;')}">${r.line_number}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
       <td style="color:var(--text3);font-size:10px">${r.service_id || ''}</td>
-    </tr>`;
+    </tr>
+    <tr id="${drillId}" style="display:none"><td colspan="11" style="padding:0">${schedDrillHTML(r)}</td></tr>`;
   }).join('');
   // sort indicators
   document.querySelectorAll(`#${tableId} th[data-sort]`).forEach(th => {
@@ -1103,6 +1143,49 @@ function attachSortHandlers(tableId) {
     });
   });
 }
+
+// Per-departure drill panel — mirrors price-alerts row drill-down. Surfaces
+// every load/util signal we have on the row plus context (line, service id,
+// product, bus type) so NP can spot under- or over-utilised buses at a glance.
+function schedDrillHTML(r) {
+  const opLabel = OP_LABELS[r.operator] || r.operator;
+  const opColor = OP_COLORS[r.operator] || '#888';
+  const ub = utilBucket(r.load_pct);
+  const utilChip = ub.label ? `<span class="util-bucket ${ub.cls}">${ub.label}</span>` : '<span style="color:var(--text3)">—</span>';
+  const sold = (r.total_seats != null && r.avail_seats != null) ? (r.total_seats - r.avail_seats) : null;
+  const lineHint = r.line_number && LINE_ATOB[r.line_number] ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">${LINE_ATOB[r.line_number]}</div>` : '';
+  return `<div class="drill-panel">
+    <div class="drill-title">
+      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${opColor};margin-right:6px;vertical-align:middle"></span>
+      <span style="color:${opColor}">${opLabel}</span> ·
+      ${r.relation_name || '—'} ·
+      ${r.departure_date} ${prettyTime(r.departure_time)}
+    </div>
+    <div class="drill-grid">
+      <div><div class="lbl">Service ID</div><div class="val" style="font-family:var(--mono);font-size:11px;word-break:break-all">${r.service_id || '—'}</div></div>
+      <div><div class="lbl">Line Code</div><div class="val" style="font-family:var(--mono)">${r.line_number || '—'}</div>${lineHint}</div>
+      <div><div class="lbl">Product</div><div class="val">${r.product || '—'}${r.is_volvo ? ' · Volvo' : ''}${r.is_ac === true ? ' · AC' : r.is_ac === false ? ' · Non-AC' : ''}</div></div>
+      <div><div class="lbl">Bus Type</div><div class="val" style="font-size:11px">${r.bus_type || '—'}</div></div>
+      <div><div class="lbl">Total Seats</div><div class="val" style="font-family:var(--mono)">${r.total_seats ?? '—'}</div></div>
+      <div><div class="lbl">Available</div><div class="val" style="font-family:var(--mono)">${r.avail_seats ?? '—'}</div></div>
+      <div><div class="lbl">Sold (proxy)</div><div class="val" style="font-family:var(--mono)">${sold ?? '—'}</div></div>
+      <div><div class="lbl">Load %</div><div class="val">${r.load_pct != null ? r.load_pct.toFixed(1) + '%' : '—'}</div></div>
+      <div><div class="lbl">Util Bucket</div><div class="val">${utilChip}</div></div>
+      <div><div class="lbl">Dep Date</div><div class="val" style="font-family:var(--mono)">${r.departure_date}</div></div>
+      <div><div class="lbl">Dep Time</div><div class="val" style="font-family:var(--mono)">${prettyTime(r.departure_time)}</div></div>
+      <div><div class="lbl">Operator</div><div class="val" style="color:${opColor}">${opLabel}</div></div>
+    </div>
+  </div>`;
+}
+
+function toggleSchedDrill(drillId, rowEl) {
+  const drill = document.getElementById(drillId);
+  if (!drill) return;
+  const isOpen = drill.style.display !== 'none';
+  drill.style.display = isOpen ? 'none' : '';
+  rowEl.classList.toggle('open', !isOpen);
+}
+window.toggleSchedDrill = toggleSchedDrill;
 
 function exportCSV(tableId, filename) {
   const st = _tableState[tableId];
@@ -1128,27 +1211,13 @@ $('long-csv') .addEventListener('click', () => exportCSV('tbl-long',  'np-depart
 
 function rollupKPIs(rows, suffix) {
   let flix = 0, comp = 0;
-  // Seat-weighted utilization: util% = 1 - sum(avail) / sum(total).
-  // A row only contributes to util if BOTH total_seats and avail_seats are present.
-  let flixSeats = 0, flixAvail = 0, compSeats = 0, compAvail = 0;
-  rows.forEach(r => {
-    const isFlix = r.operator === 'flix';
-    if (isFlix) flix++; else comp++;
-    if (r.total_seats != null && r.avail_seats != null) {
-      if (isFlix) { flixSeats += r.total_seats; flixAvail += r.avail_seats; }
-      else        { compSeats += r.total_seats; compAvail += r.avail_seats; }
-    }
-  });
+  rows.forEach(r => { if (r.operator === 'flix') flix++; else comp++; });
   const total = flix + comp;
   const share = total ? ((flix / total) * 100).toFixed(1) + '%' : '—';
-  const flixUtil = flixSeats ? ((1 - flixAvail / flixSeats) * 100).toFixed(1) + '%' : '—';
-  const compUtil = compSeats ? ((1 - compAvail / compSeats) * 100).toFixed(1) + '%' : '—';
-  $(`kpi-total-${suffix}`).textContent     = fmtNumber(total);
-  $(`kpi-flix-${suffix}`).textContent      = fmtNumber(flix);
-  $(`kpi-comp-${suffix}`).textContent      = fmtNumber(comp);
-  $(`kpi-share-${suffix}`).textContent     = share;
-  $(`kpi-util-flix-${suffix}`).textContent = flixUtil;
-  $(`kpi-util-comp-${suffix}`).textContent = compUtil;
+  $(`kpi-total-${suffix}`).textContent = fmtNumber(total);
+  $(`kpi-flix-${suffix}`).textContent  = fmtNumber(flix);
+  $(`kpi-comp-${suffix}`).textContent  = fmtNumber(comp);
+  $(`kpi-share-${suffix}`).textContent = share;
 }
 
 // ════════════════════════════════════════════════════════════════════════
