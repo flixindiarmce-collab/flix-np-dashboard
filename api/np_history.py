@@ -4,7 +4,7 @@
 
 Query params:
   view          wow | trend_45 | share | dow | top_relations
-                | wow_relation | mom              default: wow
+                | wow_relation | util | mom       default: wow
   dep_from      YYYY-MM-DD                       optional
   dep_to        YYYY-MM-DD                       optional
   origin_hub    City name                        optional
@@ -36,6 +36,8 @@ Views:
                    with per-operator breakdown
   - wow_relation:  per-relation WoW gainers and losers (rolling 14d
                    regardless of dep_from/dep_to)
+  - util:          daily seat-weighted utilization % for Flix vs
+                   Competitors over the window
   - mom:           returns placeholder until 2026-06-01
 """
 import json
@@ -505,6 +507,77 @@ def _do_top_relations(params, applied, op_filter, prod_filter, extra_filter):
     }
 
 
+def _do_util(params, applied, op_filter, prod_filter, extra_filter):
+    """Daily seat-weighted utilization for Flix vs Competitors over the window.
+
+    util_pct = 1 - sum(available_seats) / sum(total_seats), aggregated across
+    all services on that date. Latest scrape per (relation, date, service_id)
+    wins — same dedup logic as the trend view. The latest scrape's
+    available_seats is the closest proxy we have for "actually sold seats" by
+    departure time, since once a bus sells out it drops off subsequent scrapes
+    and its last-seen avail count is what stuck.
+    """
+    history_days = 45
+    scrape_clause, dep_clause = _window_clauses(history_days,
+                                                applied.get("dep_from"),
+                                                applied.get("dep_to"))
+    sql = f"""
+        WITH base AS (
+          SELECT scrape_timestamp, relation_name, service_id, travels_name, bus_type,
+                 is_seater, is_sleeper,
+                 SAFE_CAST(total_seats     AS INT64) AS total_seats,
+                 SAFE_CAST(available_seats AS INT64) AS available_seats,
+                 PARSE_DATE('%d-%b-%Y', departure_date) AS departure_date
+          FROM `redbus-agent-490708.redbus.bus_inventory`
+          WHERE {scrape_clause}
+            AND ({op_filter})
+            {prod_filter}
+            {extra_filter}
+            AND {dep_clause}
+        ),
+        dedup AS (
+          SELECT * FROM (
+            SELECT *, ROW_NUMBER() OVER (
+              PARTITION BY relation_name, departure_date, service_id
+              ORDER BY scrape_timestamp DESC
+            ) AS rn
+            FROM base
+            WHERE service_id IS NOT NULL AND service_id != ''
+              AND relation_name IS NOT NULL
+              AND total_seats IS NOT NULL AND total_seats > 0
+              AND available_seats IS NOT NULL
+          ) WHERE rn = 1
+        )
+        SELECT
+          departure_date,
+          CASE WHEN LOWER(travels_name) LIKE '%flix%' THEN 'flix' ELSE 'comp' END AS operator_group,
+          SUM(total_seats)     AS total_seats,
+          SUM(available_seats) AS available_seats
+        FROM dedup
+        GROUP BY departure_date, operator_group
+        ORDER BY departure_date, operator_group
+    """
+    rows = [dict(r) for r in _bq_client().query(sql).result()]
+    points = []
+    for r in rows:
+        total = r["total_seats"] or 0
+        avail = r["available_seats"] or 0
+        util_pct = round((1 - avail / total) * 100, 1) if total else None
+        points.append({
+            "departure_date": r["departure_date"].isoformat(),
+            "operator_group": r["operator_group"],
+            "total_seats":    int(total),
+            "avail_seats":    int(avail),
+            "util_pct":       util_pct,
+        })
+    return {
+        "ok":              True,
+        "view":            "util",
+        "filters_applied": applied,
+        "points":          points,
+    }
+
+
 def _do_wow_relation(params, applied, op_filter, prod_filter, extra_filter):
     """Per-relation WoW change. Always rolls 14d (last 7d vs prior 7d, today
     being the anchor) regardless of dep_from/dep_to — answers "this week vs
@@ -615,6 +688,8 @@ class handler(BaseHTTPRequestHandler):
                 result = _do_top_relations(params, applied, op_filter, prod_filter, extra_filter)
             elif view == "wow_relation":
                 result = _do_wow_relation(params, applied, op_filter, prod_filter, extra_filter)
+            elif view == "util":
+                result = _do_util(params, applied, op_filter, prod_filter, extra_filter)
             elif view == "mom":
                 result = _do_mom_placeholder()
             else:

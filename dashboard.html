@@ -95,7 +95,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 .fresh-banner.show{display:block}
 .fresh-banner b{color:var(--amber);font-weight:600}
 
-.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
 .kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,var(--flix))}
 .kpi-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;font-family:var(--mono)}
@@ -334,6 +334,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
         <div class="kpi"><div class="kpi-label">Flix</div><div class="kpi-value" id="kpi-flix-short">—</div></div>
         <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Competitors (combined)</div><div class="kpi-value" id="kpi-comp-short">—</div></div>
         <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Flix share</div><div class="kpi-value" id="kpi-share-short">—</div></div>
+        <div class="kpi"><div class="kpi-label">Flix util %</div><div class="kpi-value" id="kpi-util-flix-short">—</div></div>
+        <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Comp util %</div><div class="kpi-value" id="kpi-util-comp-short">—</div></div>
       </div>
       <div class="card">
         <div class="card-head">
@@ -384,6 +386,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
         <div class="kpi"><div class="kpi-label">Flix</div><div class="kpi-value" id="kpi-flix-long">—</div></div>
         <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Competitors (combined)</div><div class="kpi-value" id="kpi-comp-long">—</div></div>
         <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Flix share</div><div class="kpi-value" id="kpi-share-long">—</div></div>
+        <div class="kpi"><div class="kpi-label">Flix util %</div><div class="kpi-value" id="kpi-util-flix-long">—</div></div>
+        <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Comp util %</div><div class="kpi-value" id="kpi-util-comp-long">—</div></div>
       </div>
       <div class="card">
         <div class="card-head">
@@ -438,6 +442,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
       <div class="card">
         <div class="card-head"><div><div class="card-title">Daily trend</div><div class="card-sub" id="hist-trend-sub">Departures per day × operator · respects Filter From/To dates if set</div></div></div>
         <div class="card-body"><div class="chart-wrap" style="height:340px"><canvas id="chart-trend-45"></canvas></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">Utilization % — Flix vs Competitors</div><div class="card-sub" id="hist-util-sub">Seat-weighted daily util · 1 − avail_seats / total_seats</div></div></div>
+        <div class="card-body"><div class="chart-wrap" style="height:300px"><canvas id="chart-util"></canvas></div></div>
       </div>
 
       <div class="card">
@@ -1119,13 +1128,27 @@ $('long-csv') .addEventListener('click', () => exportCSV('tbl-long',  'np-depart
 
 function rollupKPIs(rows, suffix) {
   let flix = 0, comp = 0;
-  rows.forEach(r => { if (r.operator === 'flix') flix++; else comp++; });
+  // Seat-weighted utilization: util% = 1 - sum(avail) / sum(total).
+  // A row only contributes to util if BOTH total_seats and avail_seats are present.
+  let flixSeats = 0, flixAvail = 0, compSeats = 0, compAvail = 0;
+  rows.forEach(r => {
+    const isFlix = r.operator === 'flix';
+    if (isFlix) flix++; else comp++;
+    if (r.total_seats != null && r.avail_seats != null) {
+      if (isFlix) { flixSeats += r.total_seats; flixAvail += r.avail_seats; }
+      else        { compSeats += r.total_seats; compAvail += r.avail_seats; }
+    }
+  });
   const total = flix + comp;
   const share = total ? ((flix / total) * 100).toFixed(1) + '%' : '—';
-  $(`kpi-total-${suffix}`).textContent = fmtNumber(total);
-  $(`kpi-flix-${suffix}`).textContent  = fmtNumber(flix);
-  $(`kpi-comp-${suffix}`).textContent  = fmtNumber(comp);
-  $(`kpi-share-${suffix}`).textContent = share;
+  const flixUtil = flixSeats ? ((1 - flixAvail / flixSeats) * 100).toFixed(1) + '%' : '—';
+  const compUtil = compSeats ? ((1 - compAvail / compSeats) * 100).toFixed(1) + '%' : '—';
+  $(`kpi-total-${suffix}`).textContent     = fmtNumber(total);
+  $(`kpi-flix-${suffix}`).textContent      = fmtNumber(flix);
+  $(`kpi-comp-${suffix}`).textContent      = fmtNumber(comp);
+  $(`kpi-share-${suffix}`).textContent     = share;
+  $(`kpi-util-flix-${suffix}`).textContent = flixUtil;
+  $(`kpi-util-comp-${suffix}`).textContent = compUtil;
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -1177,13 +1200,14 @@ async function loadHistoryTab() {
   _historyLoaded = true;
   setTabLoading('history', true);
   try {
-  const [wow, trend, share, dow, top, wowRel] = await Promise.all([
+  const [wow, trend, share, dow, top, wowRel, util] = await Promise.all([
     api('/api/np-history' + filterQS({view:'wow'})),
     api('/api/np-history' + filterQS({view:'trend_45'})),
     api('/api/np-history' + filterQS({view:'share'})),
     api('/api/np-history' + filterQS({view:'dow'})),
     api('/api/np-history' + filterQS({view:'top_relations'})),
     api('/api/np-history' + filterQS({view:'wow_relation'})),
+    api('/api/np-history' + filterQS({view:'util'})),
   ]);
 
   // ── WoW KPIs ────────────────────────────────────────────────────────
@@ -1214,6 +1238,8 @@ async function loadHistoryTab() {
   renderTopRelations(top);
   // ── WoW gainers/losers (two horizontal bars) ────────────────────────
   renderWowMovers(wowRel);
+  // ── Daily util% Flix vs Comp ────────────────────────────────────────
+  renderUtilLine(util);
   } finally {
     setTabLoading('history', false);
   }
@@ -1243,6 +1269,41 @@ function renderTrendLine(trend) {
       responsive:true, maintainAspectRatio:false,
       plugins:{legend:{position:'bottom', labels:{boxWidth:10,font:{size:11}}}},
       scales:{x:{ticks:{font:{size:9},maxRotation:90,minRotation:60}}, y:{beginAtZero:true}}
+    }
+  });
+}
+
+function renderUtilLine(util) {
+  if (!util.ok || !util.points) return;
+  const points = util.points;
+  const dates = [...new Set(points.map(p => p.departure_date))].sort();
+  destroyChart('chart-util');
+  const groupColor = { flix: OP_COLORS.flix, comp: '#3b82f6' };
+  const groupLabel = { flix: 'Flix', comp: 'Competitors' };
+  const datasets = ['flix','comp'].map(g => ({
+    label: groupLabel[g],
+    borderColor: groupColor[g],
+    backgroundColor: groupColor[g],
+    fill: false, tension: 0.2, pointRadius: 2,
+    data: dates.map(d => {
+      const row = points.find(p => p.departure_date === d && p.operator_group === g);
+      return row ? row.util_pct : null;
+    }),
+  }));
+  const ctx = $('chart-util').getContext('2d');
+  _charts['chart-util'] = new Chart(ctx, {
+    type: 'line',
+    data: { labels: dates, datasets },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom', labels:{boxWidth:10,font:{size:11}}},
+        tooltip:{callbacks:{label:(c)=>`${c.dataset.label}: ${c.parsed.y == null ? '—' : c.parsed.y + '%'}`}}
+      },
+      scales:{
+        x:{ticks:{font:{size:9},maxRotation:90,minRotation:60}},
+        y:{beginAtZero:true, max:100, ticks:{callback:(v)=>v+'%',font:{size:10}}}
+      }
     }
   });
 }
