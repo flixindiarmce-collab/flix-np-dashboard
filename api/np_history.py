@@ -113,36 +113,67 @@ def _region_to_relations(region: str) -> list[str]:
 
 PRODUCT_TYPES_ALL = {"Seater", "Sleeper", "Hybrid", "Volvo"}
 
-# Two-tier product-type classification, mirroring comp-parity:
-#   Primary  — bus_product_type from bus_inventory_enriched (curated pipeline
-#              that has already resolved semi-sleeper / hybrid ambiguity).
-#   Fallback — derived from raw bus_type string when the enriched join misses
-#              (older scrapes / late inventory not yet enriched). Semi-sleeper
-#              falls into Seater in the fallback.
+# Product-type classification runs a 6-branch CASE ladder against
+# (total_seats, bus_type). Ordered evaluation — first matching branch wins.
+# bus_inventory_enriched.bus_product_type is intentionally NOT consulted:
+# this ladder is the single source of truth so np-dashboard and comp-parity
+# reach identical verdicts for the same bus.
 #
-# Using the enriched column as primary guarantees np-dashboard and comp-parity
-# read the same verdict for a given bus — a "Volvo 9600 Multi Axle Semi-Sleeper
-# (2+2)" gets whatever bus_product_type the enrichment pipeline assigned,
-# consistently across both surfaces.
-def _bt_seater():
-    return ("(LOWER(bus_type) LIKE '%seater%' OR LOWER(bus_type) LIKE '%semi sleeper%') "
-            "AND NOT (LOWER(bus_type) LIKE '%sleeper%' AND LOWER(bus_type) NOT LIKE '%semi sleeper%')")
+#   Branch 1 (Sleeper): total_seats = 36 — the canonical 2+1 flat-berth
+#                       capacity overrides any bus_type text.
+#   Branch 2 (Hybrid ): bus_type contains BOTH 'seater' AND 'sleeper'
+#                       (e.g. "A/C Seater/Sleeper" — dual cabin).
+#   Branch 3 (Hybrid ): bus_type contains 'sleeper.*sleeper' AND 'semi'
+#                       ("Semi Sleeper + Sleeper" combo).
+#   Branch 4 (Seater ): bus_type contains 'semi' + 'sleeper' without the
+#                       double-sleeper pattern (semi-sleeper is a reclining
+#                       seat, not a berth).
+#   Branch 5 (Sleeper): bus_type has 'sleeper' and NOT 'seater' — pure
+#                       sleeper.
+#   Branch 6 (Seater ): bus_type has 'seater' and NOT 'sleeper' — pure
+#                       seater.
+#
+# A bus with bus_type matching no branch (and total_seats != 36) falls to
+# Unknown and is EXCLUDED by any product-type filter.
 
-def _bt_sleeper():
-    return ("LOWER(bus_type) LIKE '%sleeper%' "
-            "AND LOWER(bus_type) NOT LIKE '%semi sleeper%' "
-            "AND LOWER(bus_type) NOT LIKE '%seater%'")
+_BT = "LOWER(bus_type)"
+_DOUBLE_SLEEPER = f"REGEXP_CONTAINS({_BT}, r'sleeper.*sleeper')"
 
-def _bt_hybrid():
-    return ("LOWER(bus_type) LIKE '%seater%' AND LOWER(bus_type) LIKE '%sleeper%' "
-            "AND LOWER(bus_type) NOT LIKE '%semi sleeper%'")
+_B1_SLEEPER = "total_seats = 36"
+_B2_HYBRID  = f"NOT ({_B1_SLEEPER}) AND {_BT} LIKE '%sleeper%' AND {_BT} LIKE '%seater%'"
+_B3_HYBRID  = (
+    f"NOT ({_B1_SLEEPER}) "
+    f"AND NOT ({_BT} LIKE '%sleeper%' AND {_BT} LIKE '%seater%') "
+    f"AND {_DOUBLE_SLEEPER} AND {_BT} LIKE '%semi%'"
+)
+_B4_SEATER = (
+    f"NOT ({_B1_SLEEPER}) "
+    f"AND NOT ({_BT} LIKE '%sleeper%' AND {_BT} LIKE '%seater%') "
+    f"AND NOT ({_DOUBLE_SLEEPER} AND {_BT} LIKE '%semi%') "
+    f"AND {_BT} LIKE '%semi%' AND {_BT} LIKE '%sleeper%' AND NOT {_DOUBLE_SLEEPER}"
+)
+_B5_SLEEPER = (
+    f"NOT ({_B1_SLEEPER}) "
+    f"AND NOT ({_BT} LIKE '%sleeper%' AND {_BT} LIKE '%seater%') "
+    f"AND NOT ({_DOUBLE_SLEEPER} AND {_BT} LIKE '%semi%') "
+    f"AND NOT ({_BT} LIKE '%semi%' AND {_BT} LIKE '%sleeper%') "
+    f"AND {_BT} LIKE '%sleeper%' AND {_BT} NOT LIKE '%seater%'"
+)
+_B6_SEATER = (
+    f"NOT ({_B1_SLEEPER}) "
+    f"AND NOT ({_BT} LIKE '%sleeper%' AND {_BT} LIKE '%seater%') "
+    f"AND NOT ({_DOUBLE_SLEEPER} AND {_BT} LIKE '%semi%') "
+    f"AND NOT ({_BT} LIKE '%semi%' AND {_BT} LIKE '%sleeper%') "
+    f"AND NOT ({_BT} LIKE '%sleeper%' AND {_BT} NOT LIKE '%seater%') "
+    f"AND {_BT} LIKE '%seater%' AND {_BT} NOT LIKE '%sleeper%'"
+)
 
 PRODUCT_TYPE_CLAUSES = {
-    "Seater":  f"((LOWER(bus_product_type) = 'seater')  OR (bus_product_type IS NULL AND ({_bt_seater()})))",
-    "Sleeper": f"((LOWER(bus_product_type) = 'sleeper') OR (bus_product_type IS NULL AND ({_bt_sleeper()})))",
-    "Hybrid":  f"((LOWER(bus_product_type) = 'hybrid')  OR (bus_product_type IS NULL AND ({_bt_hybrid()})))",
+    "Sleeper": f"(({_B1_SLEEPER}) OR ({_B5_SLEEPER}))",
+    "Hybrid":  f"(({_B2_HYBRID}) OR ({_B3_HYBRID}))",
+    "Seater":  f"(({_B4_SEATER}) OR ({_B6_SEATER}))",
     # Volvo is orthogonal — applies on top of any seat layout.
-    "Volvo":   "LOWER(bus_type) LIKE '%volvo%'",
+    "Volvo":   f"{_BT} LIKE '%volvo%'",
 }
 
 
@@ -301,7 +332,8 @@ def _build_trend_sql(history_days: int, op_filter: str, prod_filter: str, extra_
             travels_name,
             bus_type,
             is_seater,
-            is_sleeper
+            is_sleeper,
+            SAFE_CAST(total_seats AS INT64)         AS total_seats
           FROM `redbus-agent-490708.redbus.bus_inventory`
           WHERE {scrape_clause}
             AND ({op_filter})
@@ -520,6 +552,7 @@ def _do_top_relations(params, applied, op_filter, prod_filter, extra_filter):
     sql = f"""
         WITH base AS (
           SELECT scrape_timestamp, relation_name, service_id, travels_name, bus_type, is_seater, is_sleeper,
+                 SAFE_CAST(total_seats AS INT64) AS total_seats,
                  PARSE_DATE('%d-%b-%Y', departure_date) AS departure_date
           FROM `redbus-agent-490708.redbus.bus_inventory`
           WHERE {scrape_clause}
@@ -677,6 +710,7 @@ def _do_wow_relation(params, applied, op_filter, prod_filter, extra_filter):
     sql = f"""
         WITH base AS (
           SELECT scrape_timestamp, relation_name, service_id, travels_name, bus_type, is_seater, is_sleeper,
+                 SAFE_CAST(total_seats AS INT64) AS total_seats,
                  PARSE_DATE('%d-%b-%Y', departure_date) AS departure_date
           FROM `redbus-agent-490708.redbus.bus_inventory`
           WHERE {scrape_clause}

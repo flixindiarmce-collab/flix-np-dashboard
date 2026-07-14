@@ -270,26 +270,51 @@ LINE_TO_UUID = {v: k for k, v in UUID_TO_LINE.items()}
 # This intentionally departs from Flix's is_seater/is_sleeper boolean encoding
 # (which classes semi-sleeper as Hybrid). Using bus_type strings on both
 # dashboards guarantees a bus in one is the same category in the other.
-def _bt_seater():
-    return ("(LOWER(bus_type) LIKE '%seater%' OR LOWER(bus_type) LIKE '%semi sleeper%') "
-            "AND NOT (LOWER(bus_type) LIKE '%sleeper%' AND LOWER(bus_type) NOT LIKE '%semi sleeper%')")
+# Product-type classification runs a 6-branch CASE ladder against
+# (total_seats, bus_type). Same ladder as np_history.py and comp-parity.
+_BT = "LOWER(bus_type)"
+_DOUBLE_SLEEPER = f"REGEXP_CONTAINS({_BT}, r'sleeper.*sleeper')"
 
-def _bt_sleeper():
-    return ("LOWER(bus_type) LIKE '%sleeper%' "
-            "AND LOWER(bus_type) NOT LIKE '%semi sleeper%' "
-            "AND LOWER(bus_type) NOT LIKE '%seater%'")
-
-def _bt_hybrid():
-    return ("LOWER(bus_type) LIKE '%seater%' AND LOWER(bus_type) LIKE '%sleeper%' "
-            "AND LOWER(bus_type) NOT LIKE '%semi sleeper%'")
+_B1_SLEEPER = "total_seats = 36"
+_B2_HYBRID  = f"NOT ({_B1_SLEEPER}) AND {_BT} LIKE '%sleeper%' AND {_BT} LIKE '%seater%'"
+_B3_HYBRID  = (
+    f"NOT ({_B1_SLEEPER}) "
+    f"AND NOT ({_BT} LIKE '%sleeper%' AND {_BT} LIKE '%seater%') "
+    f"AND {_DOUBLE_SLEEPER} AND {_BT} LIKE '%semi%'"
+)
+_B4_SEATER = (
+    f"NOT ({_B1_SLEEPER}) "
+    f"AND NOT ({_BT} LIKE '%sleeper%' AND {_BT} LIKE '%seater%') "
+    f"AND NOT ({_DOUBLE_SLEEPER} AND {_BT} LIKE '%semi%') "
+    f"AND {_BT} LIKE '%semi%' AND {_BT} LIKE '%sleeper%' AND NOT {_DOUBLE_SLEEPER}"
+)
+_B5_SLEEPER = (
+    f"NOT ({_B1_SLEEPER}) "
+    f"AND NOT ({_BT} LIKE '%sleeper%' AND {_BT} LIKE '%seater%') "
+    f"AND NOT ({_DOUBLE_SLEEPER} AND {_BT} LIKE '%semi%') "
+    f"AND NOT ({_BT} LIKE '%semi%' AND {_BT} LIKE '%sleeper%') "
+    f"AND {_BT} LIKE '%sleeper%' AND {_BT} NOT LIKE '%seater%'"
+)
+_B6_SEATER = (
+    f"NOT ({_B1_SLEEPER}) "
+    f"AND NOT ({_BT} LIKE '%sleeper%' AND {_BT} LIKE '%seater%') "
+    f"AND NOT ({_DOUBLE_SLEEPER} AND {_BT} LIKE '%semi%') "
+    f"AND NOT ({_BT} LIKE '%semi%' AND {_BT} LIKE '%sleeper%') "
+    f"AND NOT ({_BT} LIKE '%sleeper%' AND {_BT} NOT LIKE '%seater%') "
+    f"AND {_BT} LIKE '%seater%' AND {_BT} NOT LIKE '%sleeper%'"
+)
 
 PRODUCT_TYPE_CLAUSES = {
-    "Seater":  f"((LOWER(bus_product_type) = 'seater')  OR (bus_product_type IS NULL AND ({_bt_seater()})))",
-    "Sleeper": f"((LOWER(bus_product_type) = 'sleeper') OR (bus_product_type IS NULL AND ({_bt_sleeper()})))",
-    "Hybrid":  f"((LOWER(bus_product_type) = 'hybrid')  OR (bus_product_type IS NULL AND ({_bt_hybrid()})))",
+    "Sleeper": f"(({_B1_SLEEPER}) OR ({_B5_SLEEPER}))",
+    "Hybrid":  f"(({_B2_HYBRID}) OR ({_B3_HYBRID}))",
+    "Seater":  f"(({_B4_SEATER}) OR ({_B6_SEATER}))",
     # Volvo is orthogonal — applies on top of any seat layout.
-    "Volvo":   "LOWER(bus_type) LIKE '%volvo%'",
+    "Volvo":   f"{_BT} LIKE '%volvo%'",
 }
+
+# Compiled regex for detecting the 'sleeper.*sleeper' pattern used by the
+# CASE ladder — mirrors the SQL REGEXP_CONTAINS check in _DOUBLE_SLEEPER.
+_DOUBLE_SLEEPER_RE = re.compile(r"sleeper.*sleeper", re.IGNORECASE)
 
 
 def _bq_client():
@@ -573,26 +598,27 @@ class handler(BaseHTTPRequestHandler):
                 load_pct = None
                 if seats_total and seats_avail is not None:
                     load_pct = round((1 - seats_avail / seats_total) * 100, 1)
-                # Two-tier classification, mirroring the SQL filter:
-                #  1) Prefer bus_product_type from bus_inventory_enriched
-                #  2) Fall back to bus_type string parsing when enriched has
-                #     no verdict (older scrapes / unmatched services).
-                bpt = (r["bus_product_type"] or "").strip().lower() if r.get("bus_product_type") else ""
-                if bpt in ("seater", "sleeper", "hybrid"):
-                    product = bpt.capitalize()
+                # 6-branch CASE ladder — mirrors PRODUCT_TYPE_CLAUSES exactly.
+                # Branch order matters (first match wins).
+                bt_lower = (r["bus_type"] or "").lower()
+                has_seater  = "seater" in bt_lower
+                has_sleeper = "sleeper" in bt_lower
+                has_semi    = "semi"    in bt_lower
+                double_sleeper = bool(_DOUBLE_SLEEPER_RE.search(bt_lower))
+                if seats_total == 36:
+                    product = "Sleeper"                          # B1
+                elif has_seater and has_sleeper:
+                    product = "Hybrid"                           # B2
+                elif double_sleeper and has_semi:
+                    product = "Hybrid"                           # B3
+                elif has_semi and has_sleeper and not double_sleeper:
+                    product = "Seater"                           # B4
+                elif has_sleeper and not has_seater:
+                    product = "Sleeper"                          # B5
+                elif has_seater and not has_sleeper:
+                    product = "Seater"                           # B6
                 else:
-                    bt_lower = (r["bus_type"] or "").lower()
-                    has_semi    = "semi sleeper" in bt_lower
-                    has_seater  = "seater" in bt_lower
-                    has_sleeper = "sleeper" in bt_lower and not has_semi
-                    if has_seater and has_sleeper:
-                        product = "Hybrid"
-                    elif has_sleeper:
-                        product = "Sleeper"
-                    elif has_seater or has_semi:
-                        product = "Seater"
-                    else:
-                        product = "Unknown"
+                    product = "Unknown"
                 svc = r["service_id"] or ""
                 line_number = UUID_TO_LINE.get(svc[:36]) if r["operator"] == "flix" else None
                 per_bus.append({
