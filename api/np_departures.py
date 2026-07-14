@@ -258,11 +258,26 @@ UUID_TO_LINE = {
 # Reverse lookup so users can filter by IN-code from the Line input.
 LINE_TO_UUID = {v: k for k, v in UUID_TO_LINE.items()}
 
+# Product-type classification derived from raw bus_type string. Matches the
+# comp-parity dashboard's convention so counts reconcile across dashboards:
+#   Seater  = "seater" OR "semi sleeper" (semi-sleeper is a reclining seat)
+#             AND does NOT contain a genuine "sleeper" designation
+#   Sleeper = "sleeper" and NOT "seater" and NOT "semi sleeper"
+#   Hybrid  = dual-cabin bus with BOTH "seater" AND "sleeper" tokens
+#             (excludes "semi sleeper" so it doesn't leak in as Hybrid)
+#   Volvo   = OEM tag, orthogonal — applies on top of any seat layout
+#
+# This intentionally departs from Flix's is_seater/is_sleeper boolean encoding
+# (which classes semi-sleeper as Hybrid). Using bus_type strings on both
+# dashboards guarantees a bus in one is the same category in the other.
 PRODUCT_TYPE_CLAUSES = {
-    "Seater":  "is_seater = TRUE",
-    "Sleeper": "is_sleeper = TRUE",
-    # Flix encodes semi-sleeper / hybrid with BOTH booleans false and 'Semi Sleeper' in bus_type
-    "Hybrid":  "(is_seater = FALSE AND is_sleeper = FALSE AND LOWER(bus_type) LIKE '%semi%')",
+    "Seater":  ("(LOWER(bus_type) LIKE '%seater%' OR LOWER(bus_type) LIKE '%semi sleeper%') "
+                "AND NOT (LOWER(bus_type) LIKE '%sleeper%' AND LOWER(bus_type) NOT LIKE '%semi sleeper%')"),
+    "Sleeper": ("LOWER(bus_type) LIKE '%sleeper%' "
+                "AND LOWER(bus_type) NOT LIKE '%semi sleeper%' "
+                "AND LOWER(bus_type) NOT LIKE '%seater%'"),
+    "Hybrid":  ("LOWER(bus_type) LIKE '%seater%' AND LOWER(bus_type) LIKE '%sleeper%' "
+                "AND LOWER(bus_type) NOT LIKE '%semi sleeper%'"),
     "Volvo":   "LOWER(bus_type) LIKE '%volvo%'",
 }
 
@@ -314,7 +329,7 @@ def _build_query(params: dict) -> tuple[str, dict]:
         op_keys = list(OPERATOR_PATTERNS.keys())
     operator_filter = " OR ".join(OPERATOR_PATTERNS[k] for k in op_keys)
 
-    # Product type filter — derived from is_seater/is_sleeper/bus_type
+    # Product type filter — derived from bus_type string (matches comp-parity)
     products_raw = params.get("product_type", "").split(",") if params.get("product_type") else list(PRODUCT_TYPES_ALL)
     products = [p.strip() for p in products_raw if p.strip() in PRODUCT_TYPES_ALL]
     if not products or set(products) == PRODUCT_TYPES_ALL:
@@ -517,12 +532,19 @@ class handler(BaseHTTPRequestHandler):
                 load_pct = None
                 if seats_total and seats_avail is not None:
                     load_pct = round((1 - seats_avail / seats_total) * 100, 1)
+                # Classify from bus_type string using the same rules as the
+                # SQL filter (and the comp-parity dashboard). Semi-sleeper is
+                # Seater; a bus with both "seater" and "sleeper" (excluding
+                # semi) is Hybrid.
                 bt_lower = (r["bus_type"] or "").lower()
-                if "semi" in bt_lower:
+                has_semi    = "semi sleeper" in bt_lower
+                has_seater  = "seater" in bt_lower
+                has_sleeper = "sleeper" in bt_lower and not has_semi
+                if has_seater and has_sleeper:
                     product = "Hybrid"
-                elif r["is_sleeper"]:
+                elif has_sleeper:
                     product = "Sleeper"
-                elif r["is_seater"]:
+                elif has_seater or has_semi:
                     product = "Seater"
                 else:
                     product = "Unknown"

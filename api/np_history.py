@@ -113,10 +113,26 @@ def _region_to_relations(region: str) -> list[str]:
 
 PRODUCT_TYPES_ALL = {"Seater", "Sleeper", "Hybrid", "Volvo"}
 
+# Product-type classification derived from raw bus_type string. Matches the
+# comp-parity dashboard's convention so counts reconcile across dashboards:
+#   Seater  = "seater" OR "semi sleeper" (semi-sleeper is a reclining seat)
+#             AND does NOT contain a genuine "sleeper" designation
+#   Sleeper = "sleeper" and NOT "seater" and NOT "semi sleeper"
+#   Hybrid  = dual-cabin bus with BOTH "seater" AND "sleeper" tokens
+#             (excludes "semi sleeper" so it doesn't leak in as Hybrid)
+#   Volvo   = OEM tag, orthogonal — applies on top of any seat layout
+#
+# This intentionally departs from Flix's is_seater/is_sleeper boolean encoding
+# (which classes semi-sleeper as Hybrid). Using bus_type strings on both
+# dashboards guarantees a bus in one is the same category in the other.
 PRODUCT_TYPE_CLAUSES = {
-    "Seater":  "is_seater = TRUE",
-    "Sleeper": "is_sleeper = TRUE",
-    "Hybrid":  "(is_seater = FALSE AND is_sleeper = FALSE AND LOWER(bus_type) LIKE '%semi%')",
+    "Seater":  ("(LOWER(bus_type) LIKE '%seater%' OR LOWER(bus_type) LIKE '%semi sleeper%') "
+                "AND NOT (LOWER(bus_type) LIKE '%sleeper%' AND LOWER(bus_type) NOT LIKE '%semi sleeper%')"),
+    "Sleeper": ("LOWER(bus_type) LIKE '%sleeper%' "
+                "AND LOWER(bus_type) NOT LIKE '%semi sleeper%' "
+                "AND LOWER(bus_type) NOT LIKE '%seater%'"),
+    "Hybrid":  ("LOWER(bus_type) LIKE '%seater%' AND LOWER(bus_type) LIKE '%sleeper%' "
+                "AND LOWER(bus_type) NOT LIKE '%semi sleeper%'"),
     "Volvo":   "LOWER(bus_type) LIKE '%volvo%'",
 }
 
