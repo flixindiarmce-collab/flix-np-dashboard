@@ -270,14 +270,24 @@ LINE_TO_UUID = {v: k for k, v in UUID_TO_LINE.items()}
 # This intentionally departs from Flix's is_seater/is_sleeper boolean encoding
 # (which classes semi-sleeper as Hybrid). Using bus_type strings on both
 # dashboards guarantees a bus in one is the same category in the other.
+def _bt_seater():
+    return ("(LOWER(bus_type) LIKE '%seater%' OR LOWER(bus_type) LIKE '%semi sleeper%') "
+            "AND NOT (LOWER(bus_type) LIKE '%sleeper%' AND LOWER(bus_type) NOT LIKE '%semi sleeper%')")
+
+def _bt_sleeper():
+    return ("LOWER(bus_type) LIKE '%sleeper%' "
+            "AND LOWER(bus_type) NOT LIKE '%semi sleeper%' "
+            "AND LOWER(bus_type) NOT LIKE '%seater%'")
+
+def _bt_hybrid():
+    return ("LOWER(bus_type) LIKE '%seater%' AND LOWER(bus_type) LIKE '%sleeper%' "
+            "AND LOWER(bus_type) NOT LIKE '%semi sleeper%'")
+
 PRODUCT_TYPE_CLAUSES = {
-    "Seater":  ("(LOWER(bus_type) LIKE '%seater%' OR LOWER(bus_type) LIKE '%semi sleeper%') "
-                "AND NOT (LOWER(bus_type) LIKE '%sleeper%' AND LOWER(bus_type) NOT LIKE '%semi sleeper%')"),
-    "Sleeper": ("LOWER(bus_type) LIKE '%sleeper%' "
-                "AND LOWER(bus_type) NOT LIKE '%semi sleeper%' "
-                "AND LOWER(bus_type) NOT LIKE '%seater%'"),
-    "Hybrid":  ("LOWER(bus_type) LIKE '%seater%' AND LOWER(bus_type) LIKE '%sleeper%' "
-                "AND LOWER(bus_type) NOT LIKE '%semi sleeper%'"),
+    "Seater":  f"((LOWER(bus_product_type) = 'seater')  OR (bus_product_type IS NULL AND ({_bt_seater()})))",
+    "Sleeper": f"((LOWER(bus_product_type) = 'sleeper') OR (bus_product_type IS NULL AND ({_bt_sleeper()})))",
+    "Hybrid":  f"((LOWER(bus_product_type) = 'hybrid')  OR (bus_product_type IS NULL AND ({_bt_hybrid()})))",
+    # Volvo is orthogonal — applies on top of any seat layout.
     "Volvo":   "LOWER(bus_type) LIKE '%volvo%'",
 }
 
@@ -370,6 +380,8 @@ def _build_query(params: dict) -> tuple[str, dict]:
 
     extra_filter = " ".join(extra_filters)
 
+    dep_clause_enriched = f"PARSE_DATE('%d-%b-%Y', departure_date) BETWEEN {date_lower_sql} AND {date_upper_sql}"
+
     sql = f"""
         WITH base AS (
           SELECT
@@ -393,40 +405,69 @@ def _build_query(params: dict) -> tuple[str, dict]:
           WHERE scrape_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 DAY)
             AND PARSE_DATE('%d-%b-%Y', departure_date) BETWEEN {date_lower_sql} AND {date_upper_sql}
             AND ({operator_filter})
-            {product_filter}
             {extra_filter}
+        ),
+        -- bus_product_type from bus_inventory_enriched — curated 'seater' /
+        -- 'sleeper' / 'hybrid' verdict per service. LEFT JOIN so buses missing
+        -- from enriched still flow (fallback in PRODUCT_TYPE_CLAUSES uses the
+        -- bus_type string). This is the same pattern comp-parity uses, so a
+        -- given bus lands in the same bucket on both dashboards.
+        enriched AS (
+          SELECT * FROM (
+            SELECT
+              relation_name,
+              PARSE_DATE('%d-%b-%Y', departure_date) AS departure_date,
+              service_id,
+              bus_product_type,
+              ROW_NUMBER() OVER (
+                PARTITION BY relation_name, departure_date, service_id
+                ORDER BY scrape_timestamp DESC
+              ) AS enr_rn
+            FROM `redbus-agent-490708.redbus.bus_inventory_enriched`
+            WHERE {dep_clause_enriched}
+              AND service_id    IS NOT NULL AND service_id != ''
+              AND relation_name IS NOT NULL
+          )
+          WHERE enr_rn = 1
+        ),
+        joined AS (
+          SELECT base.*, enriched.bus_product_type
+          FROM base
+          LEFT JOIN enriched
+            USING (relation_name, departure_date, service_id)
+          WHERE base.rn = 1 {product_filter}
         )
         SELECT
-          base.relation_name,
-          base.departure_date,
-          base.departure_time,
-          base.service_id,
-          base.travels_name,
-          base.bus_type,
-          base.is_seater,
-          base.is_sleeper,
-          base.is_ac,
-          base.available_seats,
-          base.total_seats,
-          CASE WHEN LOWER(base.travels_name) LIKE '%flix%'                                                   THEN 'flix'
-               WHEN LOWER(base.travels_name) LIKE '%intrcity%'                                               THEN 'intrcity'
-               WHEN LOWER(base.travels_name) LIKE '%zingbus%' AND LOWER(base.travels_name) NOT LIKE '%maxx%' THEN 'zingbus'
-               WHEN LOWER(base.travels_name) LIKE '%nuego%'                                                  THEN 'nuego'
-               WHEN LOWER(base.travels_name) LIKE '%freshbus%'                                               THEN 'freshbus'
-               WHEN LOWER(base.travels_name) LIKE '%laxmi holidays%' AND LOWER(base.travels_name) NOT LIKE '%pvt%' THEN 'laxmi'
+          joined.relation_name,
+          joined.departure_date,
+          joined.departure_time,
+          joined.service_id,
+          joined.travels_name,
+          joined.bus_type,
+          joined.is_seater,
+          joined.is_sleeper,
+          joined.bus_product_type,
+          joined.is_ac,
+          joined.available_seats,
+          joined.total_seats,
+          CASE WHEN LOWER(joined.travels_name) LIKE '%flix%'                                                   THEN 'flix'
+               WHEN LOWER(joined.travels_name) LIKE '%intrcity%'                                               THEN 'intrcity'
+               WHEN LOWER(joined.travels_name) LIKE '%zingbus%' AND LOWER(joined.travels_name) NOT LIKE '%maxx%' THEN 'zingbus'
+               WHEN LOWER(joined.travels_name) LIKE '%nuego%'                                                  THEN 'nuego'
+               WHEN LOWER(joined.travels_name) LIKE '%freshbus%'                                               THEN 'freshbus'
+               WHEN LOWER(joined.travels_name) LIKE '%laxmi holidays%' AND LOWER(joined.travels_name) NOT LIKE '%pvt%' THEN 'laxmi'
                ELSE 'other' END                                                                                AS operator,
           -- Robust hour extraction: STRPOS finds the first colon (HH:MM:SS or YYYY-MM-DD HH:MM:SS),
           -- SUBSTR grabs the 2 chars before it. SAFE_CAST handles bad rows by returning NULL.
           CASE
-            WHEN base.departure_time IS NULL OR STRPOS(base.departure_time, ':') < 3 THEN 'unknown'
-            WHEN SAFE_CAST(SUBSTR(base.departure_time, STRPOS(base.departure_time, ':') - 2, 2) AS INT64) BETWEEN 0  AND 5  THEN '00:00-05:59'
-            WHEN SAFE_CAST(SUBSTR(base.departure_time, STRPOS(base.departure_time, ':') - 2, 2) AS INT64) BETWEEN 6  AND 11 THEN '06:00-11:59'
-            WHEN SAFE_CAST(SUBSTR(base.departure_time, STRPOS(base.departure_time, ':') - 2, 2) AS INT64) BETWEEN 12 AND 17 THEN '12:00-17:59'
-            WHEN SAFE_CAST(SUBSTR(base.departure_time, STRPOS(base.departure_time, ':') - 2, 2) AS INT64) BETWEEN 18 AND 23 THEN '18:00-23:59'
+            WHEN joined.departure_time IS NULL OR STRPOS(joined.departure_time, ':') < 3 THEN 'unknown'
+            WHEN SAFE_CAST(SUBSTR(joined.departure_time, STRPOS(joined.departure_time, ':') - 2, 2) AS INT64) BETWEEN 0  AND 5  THEN '00:00-05:59'
+            WHEN SAFE_CAST(SUBSTR(joined.departure_time, STRPOS(joined.departure_time, ':') - 2, 2) AS INT64) BETWEEN 6  AND 11 THEN '06:00-11:59'
+            WHEN SAFE_CAST(SUBSTR(joined.departure_time, STRPOS(joined.departure_time, ':') - 2, 2) AS INT64) BETWEEN 12 AND 17 THEN '12:00-17:59'
+            WHEN SAFE_CAST(SUBSTR(joined.departure_time, STRPOS(joined.departure_time, ':') - 2, 2) AS INT64) BETWEEN 18 AND 23 THEN '18:00-23:59'
             ELSE 'unknown'
           END AS hour_band
-        FROM base
-        WHERE base.rn = 1
+        FROM joined
     """
 
     applied = {
@@ -532,22 +573,26 @@ class handler(BaseHTTPRequestHandler):
                 load_pct = None
                 if seats_total and seats_avail is not None:
                     load_pct = round((1 - seats_avail / seats_total) * 100, 1)
-                # Classify from bus_type string using the same rules as the
-                # SQL filter (and the comp-parity dashboard). Semi-sleeper is
-                # Seater; a bus with both "seater" and "sleeper" (excluding
-                # semi) is Hybrid.
-                bt_lower = (r["bus_type"] or "").lower()
-                has_semi    = "semi sleeper" in bt_lower
-                has_seater  = "seater" in bt_lower
-                has_sleeper = "sleeper" in bt_lower and not has_semi
-                if has_seater and has_sleeper:
-                    product = "Hybrid"
-                elif has_sleeper:
-                    product = "Sleeper"
-                elif has_seater or has_semi:
-                    product = "Seater"
+                # Two-tier classification, mirroring the SQL filter:
+                #  1) Prefer bus_product_type from bus_inventory_enriched
+                #  2) Fall back to bus_type string parsing when enriched has
+                #     no verdict (older scrapes / unmatched services).
+                bpt = (r["bus_product_type"] or "").strip().lower() if r.get("bus_product_type") else ""
+                if bpt in ("seater", "sleeper", "hybrid"):
+                    product = bpt.capitalize()
                 else:
-                    product = "Unknown"
+                    bt_lower = (r["bus_type"] or "").lower()
+                    has_semi    = "semi sleeper" in bt_lower
+                    has_seater  = "seater" in bt_lower
+                    has_sleeper = "sleeper" in bt_lower and not has_semi
+                    if has_seater and has_sleeper:
+                        product = "Hybrid"
+                    elif has_sleeper:
+                        product = "Sleeper"
+                    elif has_seater or has_semi:
+                        product = "Seater"
+                    else:
+                        product = "Unknown"
                 svc = r["service_id"] or ""
                 line_number = UUID_TO_LINE.get(svc[:36]) if r["operator"] == "flix" else None
                 per_bus.append({

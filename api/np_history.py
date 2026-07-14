@@ -113,28 +113,71 @@ def _region_to_relations(region: str) -> list[str]:
 
 PRODUCT_TYPES_ALL = {"Seater", "Sleeper", "Hybrid", "Volvo"}
 
-# Product-type classification derived from raw bus_type string. Matches the
-# comp-parity dashboard's convention so counts reconcile across dashboards:
-#   Seater  = "seater" OR "semi sleeper" (semi-sleeper is a reclining seat)
-#             AND does NOT contain a genuine "sleeper" designation
-#   Sleeper = "sleeper" and NOT "seater" and NOT "semi sleeper"
-#   Hybrid  = dual-cabin bus with BOTH "seater" AND "sleeper" tokens
-#             (excludes "semi sleeper" so it doesn't leak in as Hybrid)
-#   Volvo   = OEM tag, orthogonal — applies on top of any seat layout
+# Two-tier product-type classification, mirroring comp-parity:
+#   Primary  — bus_product_type from bus_inventory_enriched (curated pipeline
+#              that has already resolved semi-sleeper / hybrid ambiguity).
+#   Fallback — derived from raw bus_type string when the enriched join misses
+#              (older scrapes / late inventory not yet enriched). Semi-sleeper
+#              falls into Seater in the fallback.
 #
-# This intentionally departs from Flix's is_seater/is_sleeper boolean encoding
-# (which classes semi-sleeper as Hybrid). Using bus_type strings on both
-# dashboards guarantees a bus in one is the same category in the other.
+# Using the enriched column as primary guarantees np-dashboard and comp-parity
+# read the same verdict for a given bus — a "Volvo 9600 Multi Axle Semi-Sleeper
+# (2+2)" gets whatever bus_product_type the enrichment pipeline assigned,
+# consistently across both surfaces.
+def _bt_seater():
+    return ("(LOWER(bus_type) LIKE '%seater%' OR LOWER(bus_type) LIKE '%semi sleeper%') "
+            "AND NOT (LOWER(bus_type) LIKE '%sleeper%' AND LOWER(bus_type) NOT LIKE '%semi sleeper%')")
+
+def _bt_sleeper():
+    return ("LOWER(bus_type) LIKE '%sleeper%' "
+            "AND LOWER(bus_type) NOT LIKE '%semi sleeper%' "
+            "AND LOWER(bus_type) NOT LIKE '%seater%'")
+
+def _bt_hybrid():
+    return ("LOWER(bus_type) LIKE '%seater%' AND LOWER(bus_type) LIKE '%sleeper%' "
+            "AND LOWER(bus_type) NOT LIKE '%semi sleeper%'")
+
 PRODUCT_TYPE_CLAUSES = {
-    "Seater":  ("(LOWER(bus_type) LIKE '%seater%' OR LOWER(bus_type) LIKE '%semi sleeper%') "
-                "AND NOT (LOWER(bus_type) LIKE '%sleeper%' AND LOWER(bus_type) NOT LIKE '%semi sleeper%')"),
-    "Sleeper": ("LOWER(bus_type) LIKE '%sleeper%' "
-                "AND LOWER(bus_type) NOT LIKE '%semi sleeper%' "
-                "AND LOWER(bus_type) NOT LIKE '%seater%'"),
-    "Hybrid":  ("LOWER(bus_type) LIKE '%seater%' AND LOWER(bus_type) LIKE '%sleeper%' "
-                "AND LOWER(bus_type) NOT LIKE '%semi sleeper%'"),
+    "Seater":  f"((LOWER(bus_product_type) = 'seater')  OR (bus_product_type IS NULL AND ({_bt_seater()})))",
+    "Sleeper": f"((LOWER(bus_product_type) = 'sleeper') OR (bus_product_type IS NULL AND ({_bt_sleeper()})))",
+    "Hybrid":  f"((LOWER(bus_product_type) = 'hybrid')  OR (bus_product_type IS NULL AND ({_bt_hybrid()})))",
+    # Volvo is orthogonal — applies on top of any seat layout.
     "Volvo":   "LOWER(bus_type) LIKE '%volvo%'",
 }
+
+
+def _enriched_cte(dep_clause: str) -> str:
+    """SQL fragment that emits an `enriched` CTE with the latest
+    bus_product_type per (relation_name, departure_date, service_id).
+
+    Callers LEFT JOIN this CTE onto their per-bus stage USING those three
+    columns. The CTE's own dep_clause filter narrows the enriched read to the
+    same departure window as the outer query so we don't scan the full table.
+
+    The dep_clause parameter is the same PARSE_DATE window predicate the outer
+    query uses — bus_inventory_enriched shares the '%d-%b-%Y' departure_date
+    format so it applies verbatim.
+    """
+    return f"""
+        enriched AS (
+          SELECT * FROM (
+            SELECT
+              relation_name,
+              PARSE_DATE('%d-%b-%Y', departure_date) AS departure_date,
+              service_id,
+              bus_product_type,
+              ROW_NUMBER() OVER (
+                PARTITION BY relation_name, departure_date, service_id
+                ORDER BY scrape_timestamp DESC
+              ) AS rn
+            FROM `redbus-agent-490708.redbus.bus_inventory_enriched`
+            WHERE {dep_clause}
+              AND service_id    IS NOT NULL AND service_id != ''
+              AND relation_name IS NOT NULL
+          )
+          WHERE rn = 1
+        )
+    """
 
 def _bq_client():
     sa_info = json.loads(os.environ["SA_CREDENTIALS_JSON"])
@@ -262,11 +305,10 @@ def _build_trend_sql(history_days: int, op_filter: str, prod_filter: str, extra_
           FROM `redbus-agent-490708.redbus.bus_inventory`
           WHERE {scrape_clause}
             AND ({op_filter})
-            {prod_filter}
             {extra_filter}
             AND {dep_clause}
         ),
-        dedup AS (
+        per_bus AS (
           -- Identity = (relation, date, service_id). departure_time is NOT
           -- part of the partition: with multiple daily crawls the same
           -- service_id can return with a slightly drifted departure_time,
@@ -284,6 +326,19 @@ def _build_trend_sql(history_days: int, op_filter: str, prod_filter: str, extra_
               AND relation_name IS NOT NULL
           )
           WHERE rn = 1
+        ),
+        -- Join curated bus_product_type from bus_inventory_enriched so the
+        -- {{prod_filter}} clause can prefer 'seater'/'sleeper'/'hybrid' from
+        -- the enriched pipeline over bus_type string heuristics. LEFT JOIN
+        -- so buses missing from enriched still flow through (fallback uses
+        -- the bus_type string via PRODUCT_TYPE_CLAUSES).
+        {_enriched_cte(dep_clause)},
+        dedup AS (
+          SELECT p.*, e.bus_product_type
+          FROM per_bus p
+          LEFT JOIN enriched e
+            USING (relation_name, departure_date, service_id)
+          WHERE 1=1 {prod_filter}
         )
         SELECT
           departure_date,
@@ -469,11 +524,10 @@ def _do_top_relations(params, applied, op_filter, prod_filter, extra_filter):
           FROM `redbus-agent-490708.redbus.bus_inventory`
           WHERE {scrape_clause}
             AND ({op_filter})
-            {prod_filter}
             {extra_filter}
             AND {dep_clause}
         ),
-        dedup AS (
+        per_bus AS (
           SELECT * FROM (
             SELECT *, ROW_NUMBER() OVER (
               PARTITION BY relation_name, departure_date, service_id
@@ -483,6 +537,14 @@ def _do_top_relations(params, applied, op_filter, prod_filter, extra_filter):
             WHERE service_id IS NOT NULL AND service_id != ''
               AND relation_name IS NOT NULL
           ) WHERE rn = 1
+        ),
+        {_enriched_cte(dep_clause)},
+        dedup AS (
+          SELECT p.*, e.bus_product_type
+          FROM per_bus p
+          LEFT JOIN enriched e
+            USING (relation_name, departure_date, service_id)
+          WHERE 1=1 {prod_filter}
         )
         SELECT
           relation_name,
@@ -547,11 +609,10 @@ def _do_util(params, applied, op_filter, prod_filter, extra_filter):
           FROM `redbus-agent-490708.redbus.bus_inventory`
           WHERE {scrape_clause}
             AND ({op_filter})
-            {prod_filter}
             {extra_filter}
             AND {dep_clause}
         ),
-        dedup AS (
+        per_bus AS (
           SELECT * FROM (
             SELECT *, ROW_NUMBER() OVER (
               PARTITION BY relation_name, departure_date, service_id
@@ -563,6 +624,14 @@ def _do_util(params, applied, op_filter, prod_filter, extra_filter):
               AND total_seats IS NOT NULL AND total_seats > 0
               AND available_seats IS NOT NULL
           ) WHERE rn = 1
+        ),
+        {_enriched_cte(dep_clause)},
+        dedup AS (
+          SELECT p.*, e.bus_product_type
+          FROM per_bus p
+          LEFT JOIN enriched e
+            USING (relation_name, departure_date, service_id)
+          WHERE 1=1 {prod_filter}
         )
         SELECT
           departure_date,
@@ -612,11 +681,10 @@ def _do_wow_relation(params, applied, op_filter, prod_filter, extra_filter):
           FROM `redbus-agent-490708.redbus.bus_inventory`
           WHERE {scrape_clause}
             AND ({op_filter})
-            {prod_filter}
             {extra_filter}
             AND {dep_clause}
         ),
-        dedup AS (
+        per_bus AS (
           SELECT * FROM (
             SELECT *, ROW_NUMBER() OVER (
               PARTITION BY relation_name, departure_date, service_id
@@ -626,6 +694,14 @@ def _do_wow_relation(params, applied, op_filter, prod_filter, extra_filter):
             WHERE service_id IS NOT NULL AND service_id != ''
               AND relation_name IS NOT NULL
           ) WHERE rn = 1
+        ),
+        {_enriched_cte(dep_clause)},
+        dedup AS (
+          SELECT p.*, e.bus_product_type
+          FROM per_bus p
+          LEFT JOIN enriched e
+            USING (relation_name, departure_date, service_id)
+          WHERE 1=1 {prod_filter}
         )
         SELECT relation_name, departure_date,
                COUNT(DISTINCT service_id) AS n
